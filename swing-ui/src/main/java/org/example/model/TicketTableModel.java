@@ -6,10 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class TicketTableModel extends AbstractTableModel {
-    private final String[] columnNames = {"ID", "Title", "Priority", "Category", "Status", "Created Date"};
-    private final Class<?>[] columnTypes = {Long.class, String.class, Priority.class, Category.class, Status.class, LocalDateTime.class};
-    private List<TicketDTO> tickets = new ArrayList<>();
-
+    private final String[] columnNames = {"ID", "Title", "Priority", "Category", "Status", "Created Date", "Last Updated"};
+    private final Class<?>[] columnTypes = {Long.class, String.class, Priority.class, Category.class, Status.class, LocalDateTime.class, LocalDateTime.class};    private List<TicketDTO> tickets = new ArrayList<>();
     public void setTickets(List<TicketDTO> tickets) {
         this.tickets = tickets != null ? tickets : new ArrayList<>();
         fireTableDataChanged();
@@ -49,6 +47,7 @@ public class TicketTableModel extends AbstractTableModel {
             case 3 -> ticket.getCategory();
             case 4 -> ticket.getStatus();
             case 5 -> ticket.getCreatedDate();
+            case 6 -> ticket.getLastUpdated();
             default -> null;
         };
     }

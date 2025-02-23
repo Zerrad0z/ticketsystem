@@ -20,6 +20,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.regex.Pattern;
 
 public class TicketSystemClient extends JFrame {
     private JPanel contentPanel;
@@ -115,12 +116,56 @@ public class TicketSystemClient extends JFrame {
             createTicketButton.addActionListener(e -> showCreateTicketDialog());
         }
 
+        // Add search panel
+        JPanel searchPanel = new JPanel(new MigLayout("", "[][grow][]", "[]"));
+        JTextField searchField = new JTextField(20);
+        JComboBox<String> searchType = new JComboBox<>(new String[]{"ID", "Title"});
+        JButton searchButton = new JButton("Search");
+
+        searchField.setToolTipText("Enter search term");
+        searchField.putClientProperty("JTextField.placeholderText", "Search tickets...");
+        searchType.setToolTipText("Select search criteria");
+
+        searchPanel.add(searchType);
+        searchPanel.add(searchField, "growx");
+        searchPanel.add(searchButton);
+
+        // Add search functionality
+        ActionListener searchAction = e -> {
+            String searchText = searchField.getText().trim();
+            if (searchText.isEmpty()) {
+                ticketsTable.setRowSorter(null);
+                return;
+            }
+
+            TableRowSorter<TicketTableModel> sorter = new TableRowSorter<>(ticketTableModel);
+            if (searchType.getSelectedItem().equals("ID")) {
+                try {
+                    Long id = Long.parseLong(searchText);
+                    sorter.setRowFilter(RowFilter.numberFilter(
+                            RowFilter.ComparisonType.EQUAL, id, 0));
+                } catch (NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(this,
+                            "Please enter a valid ID number");
+                    return;
+                }
+            } else {
+                sorter.setRowFilter(RowFilter.regexFilter(
+                        "(?i)" + Pattern.quote(searchText), 1));
+            }
+            ticketsTable.setRowSorter(sorter);
+        };
+
+        searchButton.addActionListener(searchAction);
+        searchField.addActionListener(searchAction); // Allow search on Enter key
+
         // Common action listeners
         refreshButton.addActionListener(e -> refreshTickets());
         logoutButton.addActionListener(e -> handleLogout());
 
         // Add components to main panel in correct order
         mainPanel.add(buttonsPanel, "wrap");
+        mainPanel.add(searchPanel, "growx, wrap");  // Add search panel here
 
         // Add filter panel
         createFilterPanel();
@@ -140,38 +185,120 @@ public class TicketSystemClient extends JFrame {
         TableRowSorter<TicketTableModel> sorter = new TableRowSorter<>(ticketTableModel);
         ticketsTable.setRowSorter(sorter);
 
-        // Configure columns
-        TableColumnModel columnModel = ticketsTable.getColumnModel();
-
-        // Set column widths
-        columnModel.getColumn(0).setPreferredWidth(50);  // ID
-        columnModel.getColumn(1).setPreferredWidth(200); // Title
-        columnModel.getColumn(2).setPreferredWidth(80);  // Priority
-        columnModel.getColumn(3).setPreferredWidth(100); // Category
-        columnModel.getColumn(4).setPreferredWidth(100); // Status
-        columnModel.getColumn(5).setPreferredWidth(150); // Created Date
-
-        // Set custom renderers
-        columnModel.getColumn(2).setCellRenderer(new PriorityCellRenderer());
-        columnModel.getColumn(4).setCellRenderer(new StatusCellRenderer());
-        columnModel.getColumn(5).setCellRenderer(new DateCellRenderer());
-
-        // Configure table properties
+        // Configure basic table properties
         ticketsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         ticketsTable.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
         ticketsTable.getTableHeader().setReorderingAllowed(true);
         ticketsTable.setRowHeight(25);
+        ticketsTable.getTableHeader().setToolTipText("Click to sort");
+
+        // Configure columns
+        TableColumnModel columnModel = ticketsTable.getColumnModel();
+
+        // Set column widths
+        columnModel.getColumn(0).setPreferredWidth(60);   // ID
+        columnModel.getColumn(1).setPreferredWidth(200);  // Title
+        columnModel.getColumn(2).setPreferredWidth(80);   // Priority
+        columnModel.getColumn(3).setPreferredWidth(100);  // Category
+        columnModel.getColumn(4).setPreferredWidth(100);  // Status
+        columnModel.getColumn(5).setPreferredWidth(120);  // Created Date
+        columnModel.getColumn(6).setPreferredWidth(120);  // Last Updated
+
+        // Set custom renderers
+        // Priority Column
+        columnModel.getColumn(2).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value,
+                                                           boolean isSelected, boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                if (value instanceof Priority priority && !isSelected) {
+                    setHorizontalAlignment(CENTER);
+                    switch (priority) {
+                        case HIGH -> setBackground(new Color(255, 200, 200));
+                        case MEDIUM -> setBackground(new Color(255, 255, 200));
+                        case LOW -> setBackground(new Color(200, 255, 200));
+                    }
+                    setToolTipText("Priority: " + priority);
+                }
+                return c;
+            }
+        });
+
+        // Status Column
+        columnModel.getColumn(4).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value,
+                                                           boolean isSelected, boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                if (value instanceof Status status && !isSelected) {
+                    setHorizontalAlignment(CENTER);
+                    switch (status) {
+                        case NEW -> setBackground(new Color(200, 200, 255));
+                        case IN_PROGRESS -> setBackground(new Color(255, 255, 200));
+                        case RESOLVED -> setBackground(new Color(200, 255, 200));
+                    }
+                    setToolTipText("Status: " + status);
+                }
+                return c;
+            }
+        });
+
+        // Date Columns (Created Date and Last Updated)
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+        DefaultTableCellRenderer dateRenderer = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value,
+                                                           boolean isSelected, boolean hasFocus, int row, int column) {
+                if (value instanceof LocalDateTime date) {
+                    value = date.format(dateFormatter);
+                    setToolTipText(date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy HH:mm:ss")));
+                }
+                return super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+            }
+        };
+        dateRenderer.setHorizontalAlignment(SwingConstants.CENTER);
+        columnModel.getColumn(5).setCellRenderer(dateRenderer);
+        columnModel.getColumn(6).setCellRenderer(dateRenderer);
+
+        // Title Column (with tooltip)
+        columnModel.getColumn(1).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value,
+                                                           boolean isSelected, boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                if (value != null) {
+                    setToolTipText(value.toString());
+                }
+                return c;
+            }
+        });
 
         // Add double-click listener
         ticketsTable.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
                 if (e.getClickCount() == 2) {
-                    int row = ticketsTable.convertRowIndexToModel(ticketsTable.getSelectedRow());
+                    int row = ticketsTable.getSelectedRow();
                     if (row != -1) {
+                        row = ticketsTable.convertRowIndexToModel(row);
                         TicketDTO ticket = ticketTableModel.getTicketAt(row);
                         showTicketDetailsDialog(ticket);
                     }
+                }
+            }
+        });
+
+        // Add keyboard shortcut for opening ticket details (Enter key)
+        ticketsTable.getInputMap(JComponent.WHEN_FOCUSED).put(
+                KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "OpenTicket");
+        ticketsTable.getActionMap().put("OpenTicket", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                int row = ticketsTable.getSelectedRow();
+                if (row != -1) {
+                    row = ticketsTable.convertRowIndexToModel(row);
+                    TicketDTO ticket = ticketTableModel.getTicketAt(row);
+                    showTicketDetailsDialog(ticket);
                 }
             }
         });
@@ -721,5 +848,68 @@ public class TicketSystemClient extends JFrame {
         }
 
         ticketsTable.setRowSorter(sorter);
+    }
+
+    private void createSearchPanel() {
+        JPanel searchPanel = new JPanel(new MigLayout("", "[][grow][]", "[]"));
+        JTextField searchField = new JTextField(20);
+        JComboBox<String> searchType = new JComboBox<>(new String[]{"ID", "Title"});
+        JButton searchButton = new JButton("Search");
+
+        searchField.setToolTipText("Enter search term");
+        searchType.setToolTipText("Select search criteria");
+        searchButton.setToolTipText("Click to search");
+
+        // Add search action
+        Action searchAction = new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String searchText = searchField.getText().trim();
+                if (searchText.isEmpty()) {
+                    ticketsTable.setRowSorter(null);
+                    return;
+                }
+
+                TableRowSorter<TicketTableModel> sorter = new TableRowSorter<>(ticketTableModel);
+                if (searchType.getSelectedItem().equals("ID")) {
+                    try {
+                        Long id = Long.parseLong(searchText);
+                        sorter.setRowFilter(RowFilter.numberFilter(
+                                RowFilter.ComparisonType.EQUAL, id, 0));
+                    } catch (NumberFormatException ex) {
+                        JOptionPane.showMessageDialog(TicketSystemClient.this,
+                                "Please enter a valid ID number");
+                        return;
+                    }
+                } else {
+                    sorter.setRowFilter(RowFilter.regexFilter(
+                            "(?i)" + Pattern.quote(searchText), 1));
+                }
+                ticketsTable.setRowSorter(sorter);
+            }
+        };
+
+        // Add keyboard shortcut (Ctrl + F for search)
+        searchField.getInputMap().put(
+                KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK),
+                "focusSearch"
+        );
+        searchField.getActionMap().put("focusSearch", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                searchField.requestFocusInWindow();
+            }
+        });
+
+        // Add enter key listener
+        searchField.addActionListener(searchAction);
+        searchButton.addActionListener(searchAction);
+
+        searchPanel.add(searchType);
+        searchPanel.add(searchField, "growx");
+        searchPanel.add(searchButton);
+
+        // Add to main panel (update createMainPanel method)
+        mainPanel.add(searchPanel, "wrap");
     }
 }
