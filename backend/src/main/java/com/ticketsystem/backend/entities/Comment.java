@@ -5,10 +5,10 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@AllArgsConstructor
-@NoArgsConstructor
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class Comment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -17,13 +17,15 @@ public class Comment {
     @Column(length = 1000)
     private String content;
 
-    private LocalDateTime creationDate = LocalDateTime.now();
+    private LocalDateTime createdDate = LocalDateTime.now();
 
-    @ManyToOne
-    private User createdBy;
-
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ticket_id")
     private Ticket ticket;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by_user_id")
+    private User createdBy;
 }
 
 

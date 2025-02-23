@@ -6,10 +6,10 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@AllArgsConstructor
-@NoArgsConstructor
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class AuditLog {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -18,11 +18,13 @@ public class AuditLog {
     private String action;
     private String oldValue;
     private String newValue;
-    private LocalDateTime timestamp = LocalDateTime.now();
+    private LocalDateTime createdDate = LocalDateTime.now();
 
-    @ManyToOne
-    private User performedBy;
-
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ticket_id")
     private Ticket ticket;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "performed_by_user_id")
+    private User performedBy;
 }

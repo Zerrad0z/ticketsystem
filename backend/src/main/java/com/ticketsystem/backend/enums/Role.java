@@ -1,5 +1,6 @@
 package com.ticketsystem.backend.enums;
 
 public enum Role {
-    EMPLOYEE, IT_SUPPORT
+    ROLE_EMPLOYEE,
+    ROLE_IT_SUPPORT
 }

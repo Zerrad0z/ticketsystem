@@ -1,7 +1,4 @@
-package com.ticketsystem.backend.dtos;
-
-import lombok.Getter;
-import lombok.Setter;
+package org.example.model;
 
 public class LoginRequest {
     private String username;

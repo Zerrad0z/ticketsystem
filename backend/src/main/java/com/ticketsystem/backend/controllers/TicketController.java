@@ -1,7 +1,7 @@
 package com.ticketsystem.backend.controllers;
 
+import com.ticketsystem.backend.dtos.AuditLogDTO;
 import com.ticketsystem.backend.dtos.TicketDTO;
-import com.ticketsystem.backend.entities.Ticket;
 import com.ticketsystem.backend.enums.Status;
 import com.ticketsystem.backend.services.TicketService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -12,29 +12,25 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/tickets")
 @RequiredArgsConstructor
+@RequestMapping("/api/tickets")
+@CrossOrigin(origins = "*")
 @Tag(name = "Ticket Management", description = "APIs for managing support tickets")
 public class TicketController {
+
     private final TicketService ticketService;
 
     @PostMapping
     @Operation(summary = "Create a new ticket")
-    public ResponseEntity<Ticket> createTicket(
+    public ResponseEntity<TicketDTO> createTicket(
             @RequestBody TicketDTO ticketDTO,
             @RequestHeader("User-Id") Long userId) {
-        Ticket ticket = new Ticket();
-        ticket.setTitle(ticketDTO.getTitle());
-        ticket.setDescription(ticketDTO.getDescription());
-        ticket.setPriority(ticketDTO.getPriority());
-        ticket.setCategory(ticketDTO.getCategory());
-
-        return ResponseEntity.ok(ticketService.createTicket(ticket, userId));
+        return ResponseEntity.ok(ticketService.createTicket(ticketDTO, userId));
     }
 
     @PutMapping("/{ticketId}/status")
     @Operation(summary = "Update ticket status")
-    public ResponseEntity<Ticket> updateStatus(
+    public ResponseEntity<TicketDTO> updateStatus(
             @PathVariable Long ticketId,
             @RequestParam Status newStatus,
             @RequestHeader("User-Id") Long userId) {
@@ -43,31 +39,46 @@ public class TicketController {
 
     @PostMapping("/{ticketId}/comments")
     @Operation(summary = "Add comment to ticket")
-    public ResponseEntity<Void> addComment(
+    public ResponseEntity<TicketDTO> addComment(
             @PathVariable Long ticketId,
-            @RequestParam String content,
+            @RequestBody String content,
             @RequestHeader("User-Id") Long userId) {
-        ticketService.addComment(ticketId, content, userId);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(ticketService.addComment(ticketId, content, userId));
     }
 
     @GetMapping("/user")
     @Operation(summary = "Get user's tickets")
-    public ResponseEntity<List<Ticket>> getUserTickets(
+    public ResponseEntity<List<TicketDTO>> getUserTickets(
             @RequestHeader("User-Id") Long userId) {
         return ResponseEntity.ok(ticketService.getUserTickets(userId));
     }
 
-    @GetMapping
-    @Operation(summary = "Get all tickets (IT Support only)")
-    public ResponseEntity<List<Ticket>> getAllTickets() {
-        return ResponseEntity.ok(ticketService.getAllTickets());
-    }
-
     @GetMapping("/status/{status}")
     @Operation(summary = "Get tickets by status")
-    public ResponseEntity<List<Ticket>> getTicketsByStatus(
-            @PathVariable Status status) {
-        return ResponseEntity.ok(ticketService.getTicketsByStatus(status));
+    public ResponseEntity<List<TicketDTO>> getTicketsByStatus(
+            @PathVariable Status status,
+            @RequestHeader("User-Id") Long userId) {
+        return ResponseEntity.ok(ticketService.getTicketsByStatus(status, userId));
+    }
+
+    @GetMapping("/{ticketId}")
+    @Operation(summary = "Get ticket by ID")
+    public ResponseEntity<TicketDTO> getTicketById(
+            @PathVariable Long ticketId,
+            @RequestHeader("User-Id") Long userId) {
+        return ResponseEntity.ok(ticketService.getTicketById(ticketId, userId));
+    }
+
+    @GetMapping("/audit-logs")
+    @Operation(summary = "Get audit logs (IT Support only)")
+    public ResponseEntity<List<AuditLogDTO>> getAuditLogs(
+            @RequestHeader("User-Id") Long userId) {
+        return ResponseEntity.ok(ticketService.getAuditLogs(userId));
+    }
+
+    @GetMapping
+    public ResponseEntity<List<TicketDTO>> getAllTickets(
+            @RequestHeader("User-Id") Long userId) {  // Make sure User-Id is required
+        return ResponseEntity.ok(ticketService.getAllTickets(userId));
     }
 }

@@ -1,8 +1,6 @@
 package com.ticketsystem.backend.entities;
 
-import com.ticketsystem.backend.enums.Category;
-import com.ticketsystem.backend.enums.Priority;
-import com.ticketsystem.backend.enums.Status;
+import com.ticketsystem.backend.enums.*;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -10,10 +8,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@AllArgsConstructor
-@NoArgsConstructor
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class Ticket {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -33,9 +31,10 @@ public class Ticket {
     @Enumerated(EnumType.STRING)
     private Status status = Status.NEW;
 
-    private LocalDateTime creationDate = LocalDateTime.now();
+    private LocalDateTime createdDate = LocalDateTime.now();
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by_user_id")
     private User createdBy;
 
     @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL)

@@ -3,6 +3,7 @@ package com.ticketsystem.backend.services;
 import com.ticketsystem.backend.entities.User;
 import com.ticketsystem.backend.enums.Role;
 import com.ticketsystem.backend.repositories.UserRepository;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -20,26 +21,37 @@ public class UserService {
     public UserService(UserRepository userRepository) {
         this.userRepository = userRepository;
     }
-    private static final Map<String, String> USER_DATABASE = new HashMap<>();
 
-    static {
-        // Simulating a user database with username/password pairs
-        USER_DATABASE.put("admin", "1234");
-        USER_DATABASE.put("user", "1234");
+    @PostConstruct
+    public void init() {
+        // Create default users if they don't exist
+        if (userRepository.count() == 0) {
+            // Create IT Support user
+            User itSupport = new User();
+            itSupport.setUsername("admin");
+            itSupport.setPassword("1234"); // In production, use password encoder
+            itSupport.setRole(Role.ROLE_IT_SUPPORT);
+            userRepository.save(itSupport);
+
+            // Create regular employee
+            User employee = new User();
+            employee.setUsername("user");
+            employee.setPassword("1234"); // In production, use password encoder
+            employee.setRole(Role.ROLE_EMPLOYEE);
+            userRepository.save(employee);
+        }
     }
 
     public User authenticate(String username, String password) {
-        // Validate credentials against the database
-        Optional<User> userOptional = userRepository.findByUsername(username);
-        if (userOptional.isPresent()) {
-            User user = userOptional.get();
-            // Validate password (use password encoder in real scenarios)
-            if (user.getPassword().equals(password)) {
-                return user; // Return user with valid ID
-            }
-        }
-        return null;
+        return userRepository.findByUsernameAndPassword(username, password).orElse(null);
     }
+
+    public User findById(Long id) {
+        return userRepository.findById(id).orElse(null);
+    }
+
+
+
 
     // Get all users
     public List<User> getAllUsers() {
