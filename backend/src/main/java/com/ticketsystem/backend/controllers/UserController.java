@@ -1,42 +1,42 @@
 package com.ticketsystem.backend.controllers;
 
-import com.ticketsystem.backend.entities.User;
+import com.ticketsystem.backend.dtos.UserDTO;
+import com.ticketsystem.backend.mappers.UserMapper;
 import com.ticketsystem.backend.services.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/users")
-@CrossOrigin(origins = "*") // Allow requests from any origin (you can restrict this later)
+@RequiredArgsConstructor
+@CrossOrigin(origins = "*")
+@Tag(name = "User Management", description = "APIs for managing users")
 public class UserController {
 
-    @Autowired
-    private UserService userService;
+    private final UserService userService;
+    private final UserMapper userMapper;
 
-    // Get all users
     @GetMapping
-    public List<User> getAllUsers() {
-        return userService.getAllUsers();
+    @Operation(summary = "Get all users")
+    public ResponseEntity<List<UserDTO>> getAllUsers() {
+        return ResponseEntity.ok(userMapper.toDTOList(userService.getAllUsers()));
     }
 
-    // Get user by ID
     @GetMapping("/{id}")
-    public Optional<User> getUserById(@PathVariable Long id) {
-        return userService.getUserById(id);
+    @Operation(summary = "Get user by ID")
+    public ResponseEntity<UserDTO> getUserById(@PathVariable Long id) {
+        return ResponseEntity.ok(userMapper.toDTO(userService.findById(id)));
     }
 
-    // Create or update user
-    @PostMapping
-    public User createUser(@RequestBody User user) {
-        return userService.saveUser(user);
-    }
-
-    // Delete user by ID
     @DeleteMapping("/{id}")
-    public void deleteUser(@PathVariable Long id) {
+    @Operation(summary = "Delete user")
+    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
         userService.deleteUser(id);
+        return ResponseEntity.noContent().build();
     }
 }

@@ -60,24 +60,63 @@ public class TicketSystemClient extends JFrame {
     }
 
     private void createLoginPanel() {
-        loginPanel = new JPanel(new MigLayout("fill, insets 20", "[grow]", "[][][]"));
+        loginPanel = new JPanel(new MigLayout("fill, insets 40", "[grow]", "[]30[][]30[]"));
 
+        // Create title with custom font and size
         JLabel titleLabel = new JLabel("IT Support Ticket System");
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 28));
+        titleLabel.setForeground(new Color(44, 62, 80));
 
+        // Create input fields with larger size and placeholder text
         usernameField = new JTextField(20);
         passwordField = new JPasswordField(20);
+        usernameField.setPreferredSize(new Dimension(250, 35));
+        passwordField.setPreferredSize(new Dimension(250, 35));
+
+        // Style the input fields
+        Font inputFont = new Font("Arial", Font.PLAIN, 14);
+        usernameField.setFont(inputFont);
+        passwordField.setFont(inputFont);
+        usernameField.putClientProperty("JTextField.placeholderText", "Enter username");
+        passwordField.putClientProperty("JTextField.placeholderText", "Enter password");
+
+        // Create buttons with custom styling
         JButton loginButton = new JButton("Login");
+        JButton registerButton = new JButton("Create Account");
 
-        loginPanel.add(titleLabel, "cell 0 0, center, gapbottom 30");
-        loginPanel.add(new JLabel("Username:"), "cell 0 1");
-        loginPanel.add(usernameField, "cell 0 1, growx");
-        loginPanel.add(new JLabel("Password:"), "cell 0 2");
-        loginPanel.add(passwordField, "cell 0 2, growx");
-        loginPanel.add(loginButton, "cell 0 3, center, gaptop 20");
+        // Style the buttons
+        loginButton.setPreferredSize(new Dimension(250, 40));
+        registerButton.setPreferredSize(new Dimension(250, 35));
+        loginButton.setFont(new Font("Arial", Font.BOLD, 14));
+        registerButton.setFont(new Font("Arial", Font.PLAIN, 12));
 
+        // Style login button
+        loginButton.setBackground(new Color(52, 152, 219));  // Nice blue color
+        loginButton.setForeground(Color.WHITE);
+        loginButton.setFocusPainted(false);
+        loginButton.setBorderPainted(false);
+        loginButton.setOpaque(true);
+
+        // Style register button to look like a link
+        registerButton.setBorderPainted(false);
+        registerButton.setContentAreaFilled(false);
+        registerButton.setForeground(new Color(52, 152, 219));
+        registerButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        // Add components to panel
+        loginPanel.add(titleLabel, "cell 0 0, center");
+        loginPanel.add(usernameField, "cell 0 1, center");
+        loginPanel.add(passwordField, "cell 0 2, center");
+        loginPanel.add(loginButton, "cell 0 3, center");
+        loginPanel.add(registerButton, "cell 0 4, center");
+
+        // Add login action
         loginButton.addActionListener(e -> handleLogin());
 
+        // Add register action that opens a dialog
+        registerButton.addActionListener(e -> showRegisterDialog());
+
+        // Add enter key listener
         KeyAdapter enterKeyListener = new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
@@ -88,6 +127,77 @@ public class TicketSystemClient extends JFrame {
         };
         usernameField.addKeyListener(enterKeyListener);
         passwordField.addKeyListener(enterKeyListener);
+    }
+
+    private void showRegisterDialog() {
+        JDialog dialog = new JDialog(this, "Create New Account", true);
+        dialog.setLayout(new MigLayout("fillx, insets 30", "[right][grow]", "[]15[]15[]25[]"));
+
+        JTextField regUsernameField = new JTextField(20);
+        JPasswordField regPasswordField = new JPasswordField(20);
+        JComboBox<Role> roleComboBox = new JComboBox<>(Role.values());
+
+        // Style components
+        Font labelFont = new Font("Arial", Font.BOLD, 12);
+        regUsernameField.setPreferredSize(new Dimension(200, 30));
+        regPasswordField.setPreferredSize(new Dimension(200, 30));
+        roleComboBox.setPreferredSize(new Dimension(200, 30));
+
+        JLabel titleLabel = new JLabel("Create Account");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 20));
+
+        // Create labels with custom font
+        JLabel usernameLabel = new JLabel("Username:");
+        JLabel passwordLabel = new JLabel("Password:");
+        JLabel roleLabel = new JLabel("Role:");
+        usernameLabel.setFont(labelFont);
+        passwordLabel.setFont(labelFont);
+        roleLabel.setFont(labelFont);
+
+        // Create register button with same style as login button
+        JButton submitButton = new JButton("Register");
+        submitButton.setPreferredSize(new Dimension(200, 35));
+        submitButton.setBackground(new Color(52, 152, 219));
+        submitButton.setForeground(Color.WHITE);
+        submitButton.setFont(new Font("Arial", Font.BOLD, 14));
+        submitButton.setFocusPainted(false);
+        submitButton.setBorderPainted(false);
+        submitButton.setOpaque(true);
+
+        submitButton.addActionListener(e -> {
+            try {
+                String username = regUsernameField.getText();
+                String password = new String(regPasswordField.getPassword());
+                Role role = (Role) roleComboBox.getSelectedItem();
+
+                RegisterRequest request = new RegisterRequest(username, password, role);
+                apiClient.register(request);
+                JOptionPane.showMessageDialog(dialog,
+                        "Registration successful! Please login.",
+                        "Success",
+                        JOptionPane.INFORMATION_MESSAGE);
+                dialog.dispose();
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(dialog,
+                        "Registration failed: " + ex.getMessage(),
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        // Add components to dialog
+        dialog.add(titleLabel, "span 2, center, gapbottom 20");
+        dialog.add(usernameLabel, "cell 0 1");
+        dialog.add(regUsernameField, "cell 1 1, growx");
+        dialog.add(passwordLabel, "cell 0 2");
+        dialog.add(regPasswordField, "cell 1 2, growx");
+        dialog.add(roleLabel, "cell 0 3");
+        dialog.add(roleComboBox, "cell 1 3, growx");
+        dialog.add(submitButton, "span 2, center, gaptop 20");
+
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
     }
 
     private void createMainPanel() {
@@ -319,9 +429,16 @@ public class TicketSystemClient extends JFrame {
         try {
             setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
             LoginRequest loginRequest = new LoginRequest(username, password);
-            currentUser = apiClient.login(loginRequest);
+            UserDTO user = apiClient.login(loginRequest);  // Add a debug print here
 
-            if (currentUser != null) {
+            if (user != null) {
+                // Add debug prints
+                System.out.println("Login successful");
+                System.out.println("User role: " + user.getRole());
+                System.out.println("Is IT Support: " + user.isItSupport());
+
+                currentUser = user;
+
                 // Clear sensitive data
                 usernameField.setText("");
                 passwordField.setText("");
@@ -339,6 +456,9 @@ public class TicketSystemClient extends JFrame {
                         JOptionPane.ERROR_MESSAGE);
             }
         } catch (Exception ex) {
+            // Add debug print
+            ex.printStackTrace();
+
             JOptionPane.showMessageDialog(this,
                     "Login failed: " + ex.getMessage(),
                     "Error",

@@ -32,6 +32,7 @@ public class Ticket {
     private Status status = Status.NEW;
 
     private LocalDateTime createdDate = LocalDateTime.now();
+    private LocalDateTime lastUpdated;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_user_id")

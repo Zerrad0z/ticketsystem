@@ -9,64 +9,68 @@ import java.util.List;
 public class APIClient {
     private final String baseUrl;
     private final RestTemplate restTemplate;
+    private UserDTO currentUser;
+    private String authToken;
 
     public APIClient(String baseUrl) {
         this.baseUrl = baseUrl;
         this.restTemplate = new RestTemplate();
     }
 
-    public UserDTO login(LoginRequest loginRequest) {
+    public UserDTO login(LoginRequest request) {
         try {
-            ResponseEntity<LoginResponse> response = restTemplate.postForEntity(
+            System.out.println("Attempting login for user: " + request.getUsername());
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<LoginRequest> requestEntity = new HttpEntity<>(request, headers);
+
+            ResponseEntity<UserDTO> response = restTemplate.exchange(
                     baseUrl + "/auth/login",
-                    loginRequest,
-                    LoginResponse.class
+                    HttpMethod.POST,
+                    requestEntity,
+                    UserDTO.class
             );
 
+            System.out.println("Login response status: " + response.getStatusCode());
+
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                LoginResponse loginResponse = response.getBody();
-                UserDTO userDTO = new UserDTO();
-                userDTO.setId(loginResponse.getUserId());
-                userDTO.setUsername(loginResponse.getUsername());
-                userDTO.setRole(loginResponse.getRole());
-                userDTO.setItSupport(loginResponse.isItSupport());
-                return userDTO;
+                this.currentUser = response.getBody();
+                this.authToken = response.getHeaders().getFirst("Authorization");
+                return currentUser;
             }
-            return null;
+            throw new RuntimeException("Login failed: Unexpected response");
         } catch (Exception e) {
+            System.out.println("Login error: " + e.getMessage());
+            e.printStackTrace();
             throw new RuntimeException("Login failed: " + e.getMessage());
         }
     }
 
-    public TicketDTO createTicket(TicketDTO ticket, Long userId) {
-        try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("User-Id", userId.toString());
+    private HttpHeaders createAuthHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
 
-            HttpEntity<TicketDTO> request = new HttpEntity<>(ticket, headers);
+        // Add debug logging
+        System.out.println("Creating headers for request");
+        System.out.println("Current user: " + (currentUser != null ? currentUser.getId() : "null"));
 
-            ResponseEntity<TicketDTO> response = restTemplate.exchange(
-                    baseUrl + "/tickets",
-                    HttpMethod.POST,
-                    request,
-                    TicketDTO.class
-            );
-
-            if (response.getStatusCode() == HttpStatus.OK) {
-                return response.getBody();
-            }
-            throw new RuntimeException("Failed to create ticket");
-        } catch (Exception e) {
-            throw new RuntimeException("Error creating ticket: " + e.getMessage());
+        if (currentUser != null) {
+            headers.set("User-Id", currentUser.getId().toString());
+            System.out.println("Added User-Id header: " + currentUser.getId());
         }
+
+        if (authToken != null) {
+            headers.set("Authorization", authToken);
+            System.out.println("Added Authorization header: " + authToken);
+        }
+
+        return headers;
     }
 
     public List<TicketDTO> getAllTickets(Long userId) {
         try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("User-Id", userId.toString());
-            HttpEntity<?> request = new HttpEntity<>(headers);
+            HttpEntity<?> request = new HttpEntity<>(createAuthHeaders());
 
             ResponseEntity<List<TicketDTO>> response = restTemplate.exchange(
                     baseUrl + "/tickets",
@@ -86,9 +90,7 @@ public class APIClient {
 
     public List<TicketDTO> getUserTickets(Long userId) {
         try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("User-Id", userId.toString());
-            HttpEntity<?> request = new HttpEntity<>(headers);
+            HttpEntity<?> request = new HttpEntity<>(createAuthHeaders());
 
             ResponseEntity<List<TicketDTO>> response = restTemplate.exchange(
                     baseUrl + "/tickets/user",
@@ -106,11 +108,33 @@ public class APIClient {
         }
     }
 
+    public TicketDTO createTicket(TicketDTO ticket, Long userId) {
+        try {
+            HttpEntity<TicketDTO> request = new HttpEntity<>(ticket, createAuthHeaders());
+
+            ResponseEntity<TicketDTO> response = restTemplate.exchange(
+                    baseUrl + "/tickets",
+                    HttpMethod.POST,
+                    request,
+                    TicketDTO.class
+            );
+
+            // Check for both OK and CREATED status codes
+            if (response.getStatusCode() == HttpStatus.OK ||
+                    response.getStatusCode() == HttpStatus.CREATED) {
+                return response.getBody();
+            }
+            throw new RuntimeException("Failed to create ticket");
+        } catch (Exception e) {
+            // Add debug logging
+            System.out.println("Error in createTicket: " + e.getMessage());
+            throw new RuntimeException("Error creating ticket: " + e.getMessage());
+        }
+    }
+
     public void updateTicketStatus(Long ticketId, Status newStatus, Long userId) {
         try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("User-Id", userId.toString());
-            HttpEntity<?> request = new HttpEntity<>(headers);
+            HttpEntity<?> request = new HttpEntity<>(createAuthHeaders());
 
             ResponseEntity<Void> response = restTemplate.exchange(
                     baseUrl + "/tickets/" + ticketId + "/status?newStatus=" + newStatus,
@@ -129,9 +153,7 @@ public class APIClient {
 
     public void addComment(Long ticketId, String content, Long userId) {
         try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("User-Id", userId.toString());
-            HttpEntity<String> request = new HttpEntity<>(content, headers);
+            HttpEntity<String> request = new HttpEntity<>(content, createAuthHeaders());
 
             ResponseEntity<Void> response = restTemplate.exchange(
                     baseUrl + "/tickets/" + ticketId + "/comments",
@@ -148,28 +170,9 @@ public class APIClient {
         }
     }
 
-    public List<TicketDTO> getTicketsByStatus(Status status) {
-        try {
-            ResponseEntity<List<TicketDTO>> response = restTemplate.exchange(
-                    baseUrl + "/tickets/status/" + status,
-                    HttpMethod.GET,
-                    null,
-                    new ParameterizedTypeReference<List<TicketDTO>>() {}
-            );
-
-            if (response.getStatusCode() == HttpStatus.OK) {
-                return response.getBody();
-            }
-            throw new RuntimeException("Failed to fetch tickets by status");
-        } catch (Exception e) {
-            throw new RuntimeException("Error fetching tickets by status: " + e.getMessage());
-        }
-    }
     public List<AuditLogDTO> getAuditLogs(Long userId) {
         try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("User-Id", userId.toString());
-            HttpEntity<?> request = new HttpEntity<>(headers);
+            HttpEntity<?> request = new HttpEntity<>(createAuthHeaders());
 
             ResponseEntity<List<AuditLogDTO>> response = restTemplate.exchange(
                     baseUrl + "/tickets/audit-logs",
@@ -186,15 +189,41 @@ public class APIClient {
             throw new RuntimeException("Error fetching audit logs: " + e.getMessage());
         }
     }
+
     public UserDTO getUser(Long userId) {
         try {
-            ResponseEntity<UserDTO> response = restTemplate.getForEntity(
+            HttpEntity<?> request = new HttpEntity<>(createAuthHeaders());
+
+            ResponseEntity<UserDTO> response = restTemplate.exchange(
                     baseUrl + "/users/" + userId,
+                    HttpMethod.GET,
+                    request,
                     UserDTO.class
             );
             return response.getBody();
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    public void register(RegisterRequest request) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<RegisterRequest> requestEntity = new HttpEntity<>(request, headers);
+
+            ResponseEntity<LoginResponse> response = restTemplate.exchange(
+                    baseUrl + "/auth/register",
+                    HttpMethod.POST,
+                    requestEntity,
+                    LoginResponse.class
+            );
+
+            if (response.getStatusCode() != HttpStatus.CREATED) {
+                throw new RuntimeException("Registration failed");
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Registration failed: " + e.getMessage());
         }
     }
 }

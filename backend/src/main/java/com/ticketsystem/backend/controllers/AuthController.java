@@ -2,34 +2,69 @@ package com.ticketsystem.backend.controllers;
 
 import com.ticketsystem.backend.dtos.LoginRequest;
 import com.ticketsystem.backend.dtos.LoginResponse;
+import com.ticketsystem.backend.dtos.RegisterRequest;
+import com.ticketsystem.backend.dtos.UserDTO;
 import com.ticketsystem.backend.entities.User;
+import com.ticketsystem.backend.mappers.UserMapper;
 import com.ticketsystem.backend.services.UserService;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Base64;
 
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
+@Slf4j
 public class AuthController {
 
     private final UserService userService;
+    private final UserMapper userMapper;
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
-        User user = userService.authenticate(request.getUsername(), request.getPassword());
-
-        if (user != null) {
-            LoginResponse response = new LoginResponse(
-                    user.getId(),
-                    user.getUsername(),
-                    user.getRole().toString(),
-                    user.getRole().toString().equals("ROLE_IT_SUPPORT")
-            );
-            return ResponseEntity.ok(response);
+    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+        log.info("Login attempt for user: {}", request.getUsername());
+        try {
+            User user = userService.authenticate(request.getUsername(), request.getPassword());
+            if (user != null) {
+                UserDTO userDTO = userMapper.toDTO(user);
+                return ResponseEntity.ok()
+                        .header("Authorization", "Bearer " + generateToken(user))  // Add simple token
+                        .body(userDTO);
+            }
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        } catch (Exception e) {
+            log.error("Login error for user: {}", request.getUsername(), e);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
+    }
 
-        return ResponseEntity.badRequest().build();
+    private String generateToken(User user) {
+        // Simple token generation - in production use JWT
+        return Base64.getEncoder().encodeToString(
+                (user.getUsername() + ":" + System.currentTimeMillis()).getBytes()
+        );
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(HttpSession session) {
+        session.invalidate();
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<LoginResponse> register(@RequestBody RegisterRequest request) {
+        User user = userService.createUser(
+                request.getUsername(),
+                request.getPassword(),
+                request.getRole()
+        );
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(userMapper.toLoginResponse(user));
     }
 }

@@ -7,6 +7,8 @@ import com.ticketsystem.backend.services.TicketService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -15,6 +17,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/api/tickets")
 @CrossOrigin(origins = "*")
+@Slf4j
 @Tag(name = "Ticket Management", description = "APIs for managing support tickets")
 public class TicketController {
 
@@ -25,7 +28,9 @@ public class TicketController {
     public ResponseEntity<TicketDTO> createTicket(
             @RequestBody TicketDTO ticketDTO,
             @RequestHeader("User-Id") Long userId) {
-        return ResponseEntity.ok(ticketService.createTicket(ticketDTO, userId));
+        TicketDTO createdTicket = ticketService.createTicket(ticketDTO, userId);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(createdTicket);
     }
 
     @PutMapping("/{ticketId}/status")
@@ -50,7 +55,16 @@ public class TicketController {
     @Operation(summary = "Get user's tickets")
     public ResponseEntity<List<TicketDTO>> getUserTickets(
             @RequestHeader("User-Id") Long userId) {
+        // Add debug logging
+        log.info("Getting tickets for user: {}", userId);
         return ResponseEntity.ok(ticketService.getUserTickets(userId));
+    }
+
+    @GetMapping
+    @Operation(summary = "Get all tickets (IT Support only)")
+    public ResponseEntity<List<TicketDTO>> getAllTickets(
+            @RequestHeader("User-Id") Long userId) {
+        return ResponseEntity.ok(ticketService.getAllTickets(userId));
     }
 
     @GetMapping("/status/{status}")
@@ -74,11 +88,5 @@ public class TicketController {
     public ResponseEntity<List<AuditLogDTO>> getAuditLogs(
             @RequestHeader("User-Id") Long userId) {
         return ResponseEntity.ok(ticketService.getAuditLogs(userId));
-    }
-
-    @GetMapping
-    public ResponseEntity<List<TicketDTO>> getAllTickets(
-            @RequestHeader("User-Id") Long userId) {  // Make sure User-Id is required
-        return ResponseEntity.ok(ticketService.getAllTickets(userId));
     }
 }

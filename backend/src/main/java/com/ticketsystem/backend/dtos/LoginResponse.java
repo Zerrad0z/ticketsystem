@@ -13,5 +13,5 @@ public class LoginResponse {
     private Long userId;
     private String username;
     private String role;
-    private boolean isItSupport;
+    private boolean itSupport;
 }

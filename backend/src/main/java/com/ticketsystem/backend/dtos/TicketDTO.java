@@ -24,6 +24,7 @@ public class TicketDTO {
     private Category category;
     private Status status;
     private LocalDateTime createdDate;
-    private Long createdById;  // Added this field
+    private LocalDateTime lastUpdated;
+    private Long createdById;
     private List<CommentDTO> comments = new ArrayList<>();
 }

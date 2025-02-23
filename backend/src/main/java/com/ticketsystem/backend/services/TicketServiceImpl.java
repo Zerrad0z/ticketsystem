@@ -9,104 +9,101 @@ import com.ticketsystem.backend.entities.Ticket;
 import com.ticketsystem.backend.entities.User;
 import com.ticketsystem.backend.enums.Role;
 import com.ticketsystem.backend.enums.Status;
+import com.ticketsystem.backend.exceptions.InvalidTicketDataException;
+import com.ticketsystem.backend.exceptions.TicketNotFoundException;
+import com.ticketsystem.backend.exceptions.UnauthorizedAccessException;
+import com.ticketsystem.backend.exceptions.UserNotFoundException;
+import com.ticketsystem.backend.mappers.AuditLogMapper;
+import com.ticketsystem.backend.mappers.CommentMapper;
+import com.ticketsystem.backend.mappers.TicketMapper;
 import com.ticketsystem.backend.repositories.TicketRepository;
 import com.ticketsystem.backend.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
+@Slf4j
 public class TicketServiceImpl implements TicketService {
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
+    private final TicketMapper ticketMapper;
+    private final CommentMapper commentMapper;
+    private final AuditLogMapper auditLogMapper;
 
     private User validateAndGetUser(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException(userId));
     }
 
     private void validateITSupport(User user) {
         if (user.getRole() != Role.ROLE_IT_SUPPORT) {
-            throw new RuntimeException("Operation not permitted for non-IT support users");
+            log.warn("Unauthorized access attempt by non-IT support user: {}", user.getUsername());
+            throw new UnauthorizedAccessException(
+                    "Operation not permitted for non-IT support users"
+            );
         }
     }
 
-    private TicketDTO mapToDTO(Ticket ticket) {
-        TicketDTO dto = new TicketDTO();
-        dto.setId(ticket.getId());
-        dto.setTitle(ticket.getTitle());
-        dto.setDescription(ticket.getDescription());
-        dto.setPriority(ticket.getPriority());
-        dto.setCategory(ticket.getCategory());
-        dto.setStatus(ticket.getStatus());
-        dto.setCreatedDate(ticket.getCreatedDate());
-        dto.setCreatedById(ticket.getCreatedBy().getId());
+    private void validateTicketData(TicketDTO ticketDTO) {
+        List<String> errors = new ArrayList<>();
 
-        if (ticket.getComments() != null) {
-            dto.setComments(ticket.getComments().stream()
-                    .map(this::mapCommentToDTO)
-                    .collect(Collectors.toList()));
+        if (ticketDTO.getTitle() == null || ticketDTO.getTitle().trim().isEmpty()) {
+            errors.add("Title is required");
+        }
+        if (ticketDTO.getDescription() == null || ticketDTO.getDescription().trim().isEmpty()) {
+            errors.add("Description is required");
+        }
+        if (ticketDTO.getPriority() == null) {
+            errors.add("Priority is required");
+        }
+        if (ticketDTO.getCategory() == null) {
+            errors.add("Category is required");
         }
 
-        return dto;
+        if (!errors.isEmpty()) {
+            throw new InvalidTicketDataException(
+                    "Invalid ticket data: " + String.join(", ", errors)
+            );
+        }
     }
 
-    private CommentDTO mapCommentToDTO(Comment comment) {
-        CommentDTO dto = new CommentDTO();
-        dto.setId(comment.getId());
-        dto.setContent(comment.getContent());
-        dto.setCreatedDate(comment.getCreatedDate());
-        dto.setCreatedById(comment.getCreatedBy().getId());
-        return dto;
-    }
-
-    private AuditLogDTO mapAuditLogToDTO(AuditLog auditLog) {
-        AuditLogDTO dto = new AuditLogDTO();
-        dto.setId(auditLog.getId());
-        dto.setTicketId(auditLog.getTicket().getId());
-        dto.setAction(auditLog.getAction());
-        dto.setOldValue(auditLog.getOldValue());
-        dto.setNewValue(auditLog.getNewValue());
-        dto.setPerformedById(auditLog.getPerformedBy().getId());
-        dto.setCreatedDate(auditLog.getCreatedDate());
-        return dto;
-    }
-
-    @Transactional
     @Override
     public TicketDTO createTicket(TicketDTO ticketDTO, Long userId) {
+        log.debug("Creating new ticket for user ID: {}", userId);
+        validateTicketData(ticketDTO);
         User user = validateAndGetUser(userId);
 
-        Ticket ticket = new Ticket();
-        ticket.setTitle(ticketDTO.getTitle());
-        ticket.setDescription(ticketDTO.getDescription());
-        ticket.setPriority(ticketDTO.getPriority());
-        ticket.setCategory(ticketDTO.getCategory());
+        Ticket ticket = ticketMapper.toEntity(ticketDTO);
         ticket.setStatus(Status.NEW);
         ticket.setCreatedDate(LocalDateTime.now());
+        ticket.setLastUpdated(LocalDateTime.now());
         ticket.setCreatedBy(user);
 
-        return mapToDTO(ticketRepository.save(ticket));
+        return ticketMapper.toDTO(ticketRepository.save(ticket));
     }
 
-    @Transactional
     @Override
     public TicketDTO updateStatus(Long ticketId, Status newStatus, Long userId) {
+        log.debug("Updating ticket status. Ticket ID: {}, New Status: {}", ticketId, newStatus);
         User user = validateAndGetUser(userId);
         validateITSupport(user);
 
         Ticket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new RuntimeException("Ticket not found"));
+                .orElseThrow(() -> new TicketNotFoundException(ticketId));
 
         Status oldStatus = ticket.getStatus();
         ticket.setStatus(newStatus);
+        ticket.setLastUpdated(LocalDateTime.now());
 
-        // Create audit log
         AuditLog auditLog = new AuditLog();
         auditLog.setAction("STATUS_CHANGE");
         auditLog.setOldValue(oldStatus.toString());
@@ -116,26 +113,29 @@ public class TicketServiceImpl implements TicketService {
         auditLog.setCreatedDate(LocalDateTime.now());
         ticket.getAuditLogs().add(auditLog);
 
-        return mapToDTO(ticketRepository.save(ticket));
+        return ticketMapper.toDTO(ticketRepository.save(ticket));
     }
 
-    @Transactional
     @Override
     public TicketDTO addComment(Long ticketId, String content, Long userId) {
+        log.debug("Adding comment to ticket ID: {}", ticketId);
+        if (content == null || content.trim().isEmpty()) {
+            throw new InvalidTicketDataException("Comment content cannot be empty");
+        }
+
         User user = validateAndGetUser(userId);
         validateITSupport(user);
 
         Ticket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new RuntimeException("Ticket not found"));
+                .orElseThrow(() -> new TicketNotFoundException(ticketId));
 
         Comment comment = new Comment();
-        comment.setContent(content);
+        comment.setContent(content.trim());
         comment.setCreatedBy(user);
         comment.setCreatedDate(LocalDateTime.now());
         comment.setTicket(ticket);
         ticket.getComments().add(comment);
 
-        // Create audit log for comment
         AuditLog auditLog = new AuditLog();
         auditLog.setAction("COMMENT_ADDED");
         auditLog.setNewValue("Comment added by " + user.getUsername());
@@ -144,63 +144,65 @@ public class TicketServiceImpl implements TicketService {
         auditLog.setCreatedDate(LocalDateTime.now());
         ticket.getAuditLogs().add(auditLog);
 
-        return mapToDTO(ticketRepository.save(ticket));
+        ticket.setLastUpdated(LocalDateTime.now());
+        return ticketMapper.toDTO(ticketRepository.save(ticket));
     }
 
-    @Transactional(readOnly = true)
     @Override
+    @Transactional(readOnly = true)
     public List<TicketDTO> getUserTickets(Long userId) {
+        log.debug("Fetching tickets for user ID: {}", userId);
         User user = validateAndGetUser(userId);
-        return ticketRepository.findByCreatedBy_Id(userId).stream()
-                .map(this::mapToDTO)
-                .collect(Collectors.toList());
+        return ticketMapper.toDTOList(ticketRepository.findByCreatedBy_Id(userId));
     }
 
-    @Transactional(readOnly = true)
     @Override
+    @Transactional(readOnly = true)
     public List<TicketDTO> getAllTickets(Long userId) {
+        log.debug("Fetching all tickets (IT Support access)");
         User user = validateAndGetUser(userId);
         validateITSupport(user);
 
-        return ticketRepository.findAll().stream()
-                .map(this::mapToDTO)
-                .collect(Collectors.toList());
+        return ticketMapper.toDTOList(ticketRepository.findAll());
     }
 
-    @Transactional(readOnly = true)
     @Override
+    @Transactional(readOnly = true)
     public List<TicketDTO> getTicketsByStatus(Status status, Long userId) {
-        validateAndGetUser(userId); // Just ensure user exists
-        return ticketRepository.findByStatus(status).stream()
-                .map(this::mapToDTO)
-                .collect(Collectors.toList());
+        log.debug("Fetching tickets by status: {}", status);
+        validateAndGetUser(userId);
+        return ticketMapper.toDTOList(ticketRepository.findByStatus(status));
     }
 
-    @Transactional(readOnly = true)
     @Override
+    @Transactional(readOnly = true)
     public TicketDTO getTicketById(Long ticketId, Long userId) {
+        log.debug("Fetching ticket by ID: {}", ticketId);
         User user = validateAndGetUser(userId);
         Ticket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new RuntimeException("Ticket not found"));
+                .orElseThrow(() -> new TicketNotFoundException(ticketId));
 
-        // Only allow IT support or ticket creator to view ticket
         if (user.getRole() != Role.ROLE_IT_SUPPORT &&
                 !ticket.getCreatedBy().getId().equals(userId)) {
-            throw new RuntimeException("Access denied");
+            log.warn("Unauthorized access attempt to ticket ID: {} by user ID: {}", ticketId, userId);
+            throw new UnauthorizedAccessException(
+                    "You don't have permission to view this ticket"
+            );
         }
 
-        return mapToDTO(ticket);
+        return ticketMapper.toDTO(ticket);
     }
 
-    @Transactional(readOnly = true)
     @Override
+    @Transactional(readOnly = true)
     public List<AuditLogDTO> getAuditLogs(Long userId) {
+        log.debug("Fetching audit logs");
         User user = validateAndGetUser(userId);
         validateITSupport(user);
 
         return ticketRepository.findAll().stream()
                 .flatMap(ticket -> ticket.getAuditLogs().stream())
-                .map(this::mapAuditLogToDTO)
+                .map(auditLogMapper::toDTO)
                 .collect(Collectors.toList());
     }
 }
