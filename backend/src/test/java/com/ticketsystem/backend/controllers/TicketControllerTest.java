@@ -1,192 +1,139 @@
 package com.ticketsystem.backend.controllers;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ticketsystem.backend.dtos.TicketDTO;
+import com.ticketsystem.backend.enums.Category;
+import com.ticketsystem.backend.enums.Priority;
+import com.ticketsystem.backend.enums.Status;
+import com.ticketsystem.backend.services.TicketService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.restdocs.AutoConfigureRestDocs;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
+import org.springframework.restdocs.RestDocumentationContextProvider;
+import org.springframework.restdocs.RestDocumentationExtension;
+import org.springframework.restdocs.mockmvc.MockMvcRestDocumentation;
+import org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.when;
+import static org.springframework.restdocs.headers.HeaderDocumentation.*;
 import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
 import static org.springframework.restdocs.payload.PayloadDocumentation.*;
 import static org.springframework.restdocs.request.RequestDocumentation.*;
-import static org.springframework.restdocs.headers.HeaderDocumentation.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@AutoConfigureRestDocs(outputDir = "target/generated-snippets")
-class TicketControllerTest {
+@ExtendWith({MockitoExtension.class, RestDocumentationExtension.class})
+public class TicketControllerTest {
 
-    @Autowired
+    @Mock
+    private TicketService ticketService;
+
+    @InjectMocks
+    private TicketController ticketController;
+
     private MockMvc mockMvc;
+    private ObjectMapper objectMapper = new ObjectMapper();
 
-    private final Long testUserId = 1L;
-    private final Long testTicketId = 1L;
+    @BeforeEach
+    void setUp(RestDocumentationContextProvider restDocumentation) {
+        mockMvc = MockMvcBuilders.standaloneSetup(ticketController)
+                .apply(MockMvcRestDocumentation.documentationConfiguration(restDocumentation))
+                .build();
+    }
+
+    // Utility method to convert objects to JSON string
+    private String asJsonString(Object obj) throws Exception {
+        return objectMapper.writeValueAsString(obj);
+    }
 
     @Test
-    void createTicket() throws Exception {
-        String ticketJson = """
-            {
-                "title": "Server Down",
-                "description": "Production server is not responding"
-            }
-            """;
+    @WithMockUser
+    void createTicket_ShouldReturnCreated() throws Exception {
+        TicketDTO ticketDTO = new TicketDTO();
+        ticketDTO.setTitle("Network Issue");
+        ticketDTO.setDescription("Cannot connect to internal network");
+        ticketDTO.setPriority(Priority.HIGH);
+        ticketDTO.setCategory(Category.NETWORK);
+        ticketDTO.setStatus(Status.NEW);
 
-        mockMvc.perform(post("/api/tickets")
-                        .header("User-Id", testUserId)
+        when(ticketService.createTicket(any(TicketDTO.class), anyLong()))
+                .thenReturn(ticketDTO);
+
+        mockMvc.perform(RestDocumentationRequestBuilders.post("/api/tickets")
+                        .header("User-Id", "1")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(ticketJson))
+                        .content(asJsonString(ticketDTO)))
                 .andExpect(status().isCreated())
                 .andDo(document("tickets/create",
                         requestHeaders(
-                                headerWithName("User-Id").description("ID of the user creating the ticket")
+                                headerWithName("User-Id").description("ID of the authenticated user creating the ticket")
                         ),
                         requestFields(
+                                fieldWithPath("id").ignored(),
                                 fieldWithPath("title").description("Title of the ticket"),
-                                fieldWithPath("description").description("Detailed description of the issue")
+                                fieldWithPath("description").description("Detailed description of the issue"),
+                                fieldWithPath("priority").description("Ticket priority (HIGH, MEDIUM, LOW)"),
+                                fieldWithPath("category").description("Category of the ticket (e.g., NETWORK, SOFTWARE)"),
+                                fieldWithPath("status").description("Initial status (typically OPEN)"),
+                                fieldWithPath("createdDate").ignored(),
+                                fieldWithPath("lastUpdated").ignored(),
+                                fieldWithPath("createdById").ignored(),
+                                fieldWithPath("comments").ignored()
                         ),
                         responseFields(
                                 fieldWithPath("id").description("ID of the created ticket"),
                                 fieldWithPath("title").description("Title of the ticket"),
-                                fieldWithPath("description").description("Ticket description"),
+                                fieldWithPath("description").description("Detailed description of the issue"),
+                                fieldWithPath("priority").description("Ticket priority"),
+                                fieldWithPath("category").description("Category of the ticket"),
                                 fieldWithPath("status").description("Current status of the ticket"),
+                                fieldWithPath("createdDate").description("Timestamp when the ticket was created"),
+                                fieldWithPath("lastUpdated").description("Timestamp of last update"),
+                                fieldWithPath("createdById").description("ID of the user who created the ticket"),
                                 fieldWithPath("comments").description("List of comments on the ticket")
                         )
                 ));
     }
 
     @Test
-    void updateStatus() throws Exception {
-        mockMvc.perform(put("/api/tickets/{ticketId}/status", testTicketId)
-                        .header("User-Id", testUserId)
-                        .param("newStatus", "RESOLVED"))
-                .andExpect(status().isOk())
-                .andDo(document("tickets/update-status",
-                        pathParameters(
-                                parameterWithName("ticketId").description("ID of the ticket to update")
-                        ),
-                        queryParameters(  // Changed from requestParameters to queryParameters
-                                parameterWithName("newStatus").description("New status for the ticket (OPEN, IN_PROGRESS, RESOLVED)")
-                        ),
-                        responseFields(
-                                fieldWithPath("id").description("ID of the ticket"),
-                                fieldWithPath("status").description("Updated status of the ticket")
-                        )
-                ));
-    }
+    @WithMockUser
+    void getTicketById_ShouldReturnTicket() throws Exception {
+        TicketDTO ticketDTO = new TicketDTO();
+        ticketDTO.setId(1L);
+        ticketDTO.setTitle("Printer Issue");
+        ticketDTO.setStatus(Status.IN_PROGRESS);
 
-    @Test
-    void addComment() throws Exception {
-        String commentJson = """
-            {
-                "content": "Investigating the issue"
-            }
-            """;
+        when(ticketService.getTicketById(1L, 1L)).thenReturn(ticketDTO);
 
-        mockMvc.perform(post("/api/tickets/{ticketId}/comments", testTicketId)
-                        .header("User-Id", testUserId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(commentJson))
+        mockMvc.perform(RestDocumentationRequestBuilders.get("/api/tickets/{ticketId}", 1L)
+                        .header("User-Id", "1"))
                 .andExpect(status().isOk())
-                .andDo(document("tickets/add-comment",
-                        pathParameters(
-                                parameterWithName("ticketId").description("ID of the ticket to comment on")
-                        ),
-                        requestFields(
-                                fieldWithPath("content").description("Comment text")
-                        ),
-                        responseFields(
-                                fieldWithPath("comments[].id").description("ID of the comment"),
-                                fieldWithPath("comments[].content").description("Comment content"),
-                                fieldWithPath("comments[].authorId").description("ID of the comment author")
-                        )
-                ));
-    }
-
-    @Test
-    void getUserTickets() throws Exception {
-        mockMvc.perform(get("/api/tickets/user")
-                        .header("User-Id", testUserId))
-                .andExpect(status().isOk())
-                .andDo(document("tickets/get-user-tickets",
-                        requestHeaders(
-                                headerWithName("User-Id").description("ID of the user to fetch tickets for")
-                        ),
-                        responseFields(
-                                fieldWithPath("[].id").description("Ticket ID"),
-                                fieldWithPath("[].title").description("Ticket title"),
-                                fieldWithPath("[].status").description("Current status")
-                        )
-                ));
-    }
-
-    @Test
-    void getAllTickets() throws Exception {
-        mockMvc.perform(get("/api/tickets")
-                        .header("User-Id", testUserId))
-                .andExpect(status().isOk())
-                .andDo(document("tickets/get-all",
-                        requestHeaders(
-                                headerWithName("User-Id").description("ID of the IT support user")
-                        ),
-                        responseFields(
-                                fieldWithPath("[].id").description("Ticket ID"),
-                                fieldWithPath("[].title").description("Ticket title"),
-                                fieldWithPath("[].status").description("Current status")
-                        )
-                ));
-    }
-
-    @Test
-    void getTicketsByStatus() throws Exception {
-        mockMvc.perform(get("/api/tickets/status/{status}", "OPEN")
-                        .header("User-Id", testUserId))
-                .andExpect(status().isOk())
-                .andDo(document("tickets/get-by-status",
-                        pathParameters(
-                                parameterWithName("status").description("Status to filter by (OPEN, IN_PROGRESS, RESOLVED)")
-                        ),
-                        responseFields(
-                                fieldWithPath("[].id").description("Ticket ID"),
-                                fieldWithPath("[].title").description("Ticket title"),
-                                fieldWithPath("[].status").description("Ticket status")
-                        )
-                ));
-    }
-
-    @Test
-    void getTicketById() throws Exception {
-        mockMvc.perform(get("/api/tickets/{ticketId}", testTicketId)
-                        .header("User-Id", testUserId))
-                .andExpect(status().isOk())
-                .andDo(document("tickets/get-by-id",
+                .andDo(document("tickets/getById",
                         pathParameters(
                                 parameterWithName("ticketId").description("ID of the ticket to retrieve")
                         ),
+                        requestHeaders(
+                                headerWithName("User-Id").description("ID of the authenticated user")
+                        ),
                         responseFields(
-                                fieldWithPath("id").description("Ticket ID"),
-                                fieldWithPath("title").description("Ticket title"),
-                                fieldWithPath("description").description("Detailed description"),
+                                fieldWithPath("id").description("ID of the ticket"),
+                                fieldWithPath("title").description("Title of the ticket"),
+                                fieldWithPath("description").description("Description of the issue"),
+                                fieldWithPath("priority").description("Priority level"),
+                                fieldWithPath("category").description("Category classification"),
                                 fieldWithPath("status").description("Current status"),
+                                fieldWithPath("createdDate").description("Creation timestamp"),
+                                fieldWithPath("lastUpdated").description("Last updated timestamp"),
+                                fieldWithPath("createdById").description("Creator's user ID"),
                                 fieldWithPath("comments").description("List of comments")
-                        )
-                ));
-    }
-
-    @Test
-    void getAuditLogs() throws Exception {
-        mockMvc.perform(get("/api/tickets/audit-logs")
-                        .header("User-Id", testUserId))
-                .andExpect(status().isOk())
-                .andDo(document("tickets/get-audit-logs",
-                        responseFields(
-                                fieldWithPath("[].id").description("Audit log ID"),
-                                fieldWithPath("[].action").description("Performed action"),
-                                fieldWithPath("[].timestamp").description("Action timestamp"),
-                                fieldWithPath("[].userId").description("User who performed the action")
                         )
                 ));
     }

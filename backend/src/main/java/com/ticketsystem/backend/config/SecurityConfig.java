@@ -26,13 +26,15 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/error").permitAll()
-                        .requestMatchers("/api/tickets/**").authenticated()
-                        .requestMatchers("/api/users/**").authenticated()
-                        .anyRequest().authenticated())
+                        // Allow public access to Swagger UI and API docs
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/index.html").permitAll()
+                        .requestMatchers("/api/auth/**").permitAll()  // If needed for authentication
+                        .requestMatchers("/error").permitAll()  // Ensure error page is public
+                        // Secure the ticket and user-related API routes
+                        .requestMatchers("/api/tickets/**", "/api/users/**").authenticated()
+                        .anyRequest().authenticated())  // All other routes need authentication
                 .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // Stateless session
                 .addFilterBefore(new JwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -44,7 +46,7 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(Arrays.asList("*"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
-        configuration.setExposedHeaders(Arrays.asList("Authorization"));  // Important for the token
+        configuration.setExposedHeaders(Arrays.asList("Authorization"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
