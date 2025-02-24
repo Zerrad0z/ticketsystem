@@ -1,25 +1,18 @@
 package org.example.model;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import java.time.LocalDateTime;
 
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
 public class CommentDTO {
     private Long id;
     private String content;
     private LocalDateTime createdDate;
     private Long createdById;
-
-    // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public String getContent() { return content; }
-    public void setContent(String content) { this.content = content; }
-
-    public LocalDateTime getCreatedDate() { return createdDate; }
-    public void setCreatedDate(LocalDateTime createdDate) { this.createdDate = createdDate; }
-
-    public Long getCreatedById() { return createdById; }
-    public void setCreatedById(Long createdById) { this.createdById = createdById; }
 }

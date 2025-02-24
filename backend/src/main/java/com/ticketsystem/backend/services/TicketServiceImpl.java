@@ -1,7 +1,6 @@
 package com.ticketsystem.backend.services;
 
 import com.ticketsystem.backend.dtos.AuditLogDTO;
-import com.ticketsystem.backend.dtos.CommentDTO;
 import com.ticketsystem.backend.dtos.TicketDTO;
 import com.ticketsystem.backend.entities.AuditLog;
 import com.ticketsystem.backend.entities.Comment;

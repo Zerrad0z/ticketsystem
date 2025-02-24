@@ -23,6 +23,29 @@
             <version>${spring.version}</version>
         </dependency>
 
+        <!-- Icons -->
+        <dependency>
+            <groupId>net.sf.flatpack</groupId>
+            <artifactId>flatpack-parent</artifactId>
+            <version>4.0.18</version>
+            <type>pom</type>
+        </dependency>
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf</artifactId>
+            <version>3.2.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf-extras</artifactId>
+            <version>3.2.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf-intellij-themes</artifactId>
+            <version>3.2.1</version>
+        </dependency>
+
         <!-- MigLayout for Swing -->
         <dependency>
             <groupId>com.miglayout</groupId>
