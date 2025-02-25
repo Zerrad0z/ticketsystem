@@ -30,7 +30,7 @@ ticketsystem/
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/ticketsystem.git
+git clone https://github.com/Zerrad0z/ticketsystem
 cd ticketsystem
 ```
 
