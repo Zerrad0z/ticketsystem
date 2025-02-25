@@ -20,7 +20,6 @@ import java.util.List;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -47,12 +46,11 @@ public class UserControllerTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
 
-        // Create a custom exception handler
-        RestExceptionHandler exceptionHandler = new RestExceptionHandler();
+        GlobalExceptionHandler exceptionHandler = new GlobalExceptionHandler();
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(userController)
-                .setControllerAdvice(exceptionHandler) // Add exception handler
+                .setControllerAdvice(exceptionHandler)
                 .build();
 
         objectMapper = new ObjectMapper();
@@ -73,14 +71,13 @@ public class UserControllerTest {
 
     @Test
     void getAllUsers_ShouldReturnAllUsers() throws Exception {
-        // Arrange
+
         List<User> users = Arrays.asList(user);
         List<UserDTO> userDTOs = Arrays.asList(userDTO);
 
         when(userService.getAllUsers()).thenReturn(users);
         when(userMapper.toDTOList(users)).thenReturn(userDTOs);
 
-        // Act & Assert
         mockMvc.perform(get("/api/users")
                         .header("User-Id", "1"))
                 .andExpect(status().isOk())
@@ -91,11 +88,10 @@ public class UserControllerTest {
 
     @Test
     void getUserById_ValidId_ShouldReturnUser() throws Exception {
-        // Arrange
+
         when(userService.findById(1L)).thenReturn(user);
         when(userMapper.toDTO(user)).thenReturn(userDTO);
 
-        // Act & Assert
         mockMvc.perform(get("/api/users/1")
                         .header("User-Id", "1"))
                 .andExpect(status().isOk())
@@ -105,10 +101,9 @@ public class UserControllerTest {
 
     @Test
     void getUserById_InvalidId_ShouldReturnNotFound() throws Exception {
-        // Arrange
+
         when(userService.findById(99L)).thenThrow(UserNotFoundException.class);
 
-        // Act & Assert
         mockMvc.perform(get("/api/users/99")
                         .header("User-Id", "1"))
                 .andExpect(status().isNotFound());
@@ -116,10 +111,9 @@ public class UserControllerTest {
 
     @Test
     void deleteUser_ValidId_ShouldDeleteUser() throws Exception {
-        // Arrange
+
         doNothing().when(userService).deleteUser(1L);
 
-        // Act & Assert
         mockMvc.perform(delete("/api/users/1")
                         .header("User-Id", "1"))
                 .andExpect(status().isNoContent());
@@ -129,10 +123,9 @@ public class UserControllerTest {
 
     @Test
     void deleteUser_InvalidId_ShouldReturnNotFound() throws Exception {
-        // Arrange
+
         doThrow(UserNotFoundException.class).when(userService).deleteUser(99L);
 
-        // Act & Assert
         mockMvc.perform(delete("/api/users/99")
                         .header("User-Id", "1"))
                 .andExpect(status().isNotFound());

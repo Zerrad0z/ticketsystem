@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 public interface UserService {
+
     User authenticate(String username, String password);
 
     @Transactional(readOnly = true)
@@ -15,7 +16,9 @@ public interface UserService {
     @Transactional(readOnly = true)
     List<User> getAllUsers();
 
+    @Transactional
     User createUser(String username, String password, Role role);
 
+    @Transactional
     void deleteUser(Long id);
 }

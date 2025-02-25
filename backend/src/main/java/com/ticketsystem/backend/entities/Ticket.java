@@ -29,7 +29,7 @@ public class Ticket {
     private Category category;
 
     @Enumerated(EnumType.STRING)
-    private Status status = Status.NEW;
+    private Status status = Status.NEW; //all new tickets gets created with a status of NEW
 
     private LocalDateTime createdDate = LocalDateTime.now();
     private LocalDateTime lastUpdated;

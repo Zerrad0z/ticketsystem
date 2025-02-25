@@ -36,7 +36,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT) // Added to resolve unnecessary stubbing
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class TicketServiceImplTest {
 
     @Mock
@@ -123,8 +123,6 @@ public class TicketServiceImplTest {
         // Arrange
         TicketDTO invalidTicket = new TicketDTO();
         invalidTicket.setTitle(""); // Invalid title
-
-        // Intentionally no stubs here to avoid unnecessary stubbing warning
 
         // Act & Assert
         assertThrows(InvalidTicketDataException.class, () -> {

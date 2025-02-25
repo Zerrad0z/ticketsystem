@@ -15,7 +15,7 @@ public class AuditLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String action;
+    private String action;  //actions like added comment or changed status
     private String oldValue;
     private String newValue;
     private LocalDateTime createdDate = LocalDateTime.now();

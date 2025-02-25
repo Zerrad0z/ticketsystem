@@ -10,15 +10,12 @@ import com.ticketsystem.backend.enums.Role;
 import com.ticketsystem.backend.exceptions.InvalidCredentialsException;
 import com.ticketsystem.backend.mappers.UserMapper;
 import com.ticketsystem.backend.services.UserService;
-import jakarta.servlet.http.HttpSession;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.http.MediaType;
-import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -53,12 +50,11 @@ public class AuthControllerTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
 
-        // Create a custom exception handler
-        RestExceptionHandler exceptionHandler = new RestExceptionHandler();
+        GlobalExceptionHandler exceptionHandler = new GlobalExceptionHandler();
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(authController)
-                .setControllerAdvice(exceptionHandler) // Add exception handler
+                .setControllerAdvice(exceptionHandler)
                 .build();
 
         objectMapper = new ObjectMapper();
@@ -96,11 +92,10 @@ public class AuthControllerTest {
 
     @Test
     void login_ValidCredentials_ShouldReturnUserWithToken() throws Exception {
-        // Arrange
+
         when(userService.authenticate("testuser", "password")).thenReturn(user);
         when(userMapper.toDTO(user)).thenReturn(userDTO);
 
-        // Act & Assert
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginRequest)))
@@ -111,11 +106,10 @@ public class AuthControllerTest {
 
     @Test
     void login_InvalidCredentials_ShouldReturnUnauthorized() throws Exception {
-        // Arrange
+
         when(userService.authenticate("testuser", "password"))
                 .thenThrow(new InvalidCredentialsException());
 
-        // Act & Assert
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginRequest)))
@@ -124,10 +118,9 @@ public class AuthControllerTest {
 
     @Test
     void logout_ShouldInvalidateSession() throws Exception {
-        // Arrange
+
         MockHttpSession session = new MockHttpSession();
 
-        // Act & Assert
         mockMvc.perform(post("/api/auth/logout")
                         .session(session))
                 .andExpect(status().isOk());
@@ -138,7 +131,7 @@ public class AuthControllerTest {
 
     @Test
     void register_ValidData_ShouldCreateUser() throws Exception {
-        // Arrange
+
         User newUser = new User();
         newUser.setId(2L);
         newUser.setUsername("newuser");
@@ -148,7 +141,6 @@ public class AuthControllerTest {
                 .thenReturn(newUser);
         when(userMapper.toLoginResponse(newUser)).thenReturn(loginResponse);
 
-        // Act & Assert
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(registerRequest)))
@@ -157,11 +149,10 @@ public class AuthControllerTest {
 
     @Test
     void register_ExistingUsername_ShouldReturnBadRequest() throws Exception {
-        // Arrange
+
         when(userService.createUser(anyString(), anyString(), any(Role.class)))
                 .thenThrow(new RuntimeException("Username already exists"));
 
-        // Act & Assert
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(registerRequest)))

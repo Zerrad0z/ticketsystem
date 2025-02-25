@@ -2,7 +2,6 @@ package com.ticketsystem.util;
 
 import java.awt.*;
 
-// UIConstants.java
 public class UIConstants {
     // Colors
     public static final Color PRIMARY_COLOR = new Color(52, 152, 219);    // Blue

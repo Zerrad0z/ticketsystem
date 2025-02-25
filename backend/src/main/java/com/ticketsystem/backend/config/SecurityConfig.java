@@ -27,10 +27,10 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
                         // Allow public access to Swagger UI and API docs
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/index.html").permitAll()
-                        .requestMatchers("/api/auth/**").permitAll()  // If needed for authentication
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/index.html").permitAll()
+                        .requestMatchers("/api/auth/**").permitAll()  // allowing authentication
                         .requestMatchers("/error").permitAll()  // Ensure error page is public
-                        // Secure the ticket and user-related API routes
+                        // Securing the ticket and user-related API routes
                         .requestMatchers("/api/tickets/**", "/api/users/**").authenticated()
                         .anyRequest().authenticated())  // All other routes need authentication
                 .sessionManagement(session -> session
@@ -40,6 +40,7 @@ public class SecurityConfig {
         return http.build();
     }
 
+    // Configure CORS policy for cross-origin requests
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();

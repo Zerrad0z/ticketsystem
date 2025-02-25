@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 public interface TicketService {
+
     @Transactional
     TicketDTO createTicket(TicketDTO ticketDTO, Long userId);
 

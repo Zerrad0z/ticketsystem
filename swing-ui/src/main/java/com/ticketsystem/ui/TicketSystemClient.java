@@ -90,18 +90,15 @@ public class TicketSystemClient extends JFrame {
         setMinimumSize(new Dimension(800, 600));
         setLocationRelativeTo(null);
 
-        // Set application icon
         try {
             setIconImage(createImageIcon("/icons/ticket_icon.png", "App Icon").getImage());
         } catch (Exception e) {
-            // Use a default icon if the image can't be loaded
             setIconImage(createDefaultIcon(16, 16, PRIMARY_COLOR));
         }
     }
 
     private void applyLookAndFeel() {
         try {
-            // Try to use FlatLaf or Nimbus for a modern look
             for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
                 if ("FlatLaf".equals(info.getName()) || "Nimbus".equals(info.getName())) {
                     UIManager.setLookAndFeel(info.getClassName());

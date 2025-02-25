@@ -16,6 +16,10 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Base64;
 
+/**
+ * Controller handling authentication operations like login, logout and registration
+ */
+
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -25,6 +29,12 @@ public class AuthController {
 
     private final UserService userService;
     private final UserMapper userMapper;
+
+    /**
+     * Authenticates a user and returns user details with authorization token
+     * @param request Contains username and password credentials
+     * @return User data with authorization header on success, or 401 on failure
+     */
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
@@ -44,19 +54,31 @@ public class AuthController {
         }
     }
 
+    /**
+     * Generate a simple authorization token for the user
+     */
     private String generateToken(User user) {
-        // Simple token generation - in production use JWT
         return Base64.getEncoder().encodeToString(
                 (user.getUsername() + ":" + System.currentTimeMillis()).getBytes()
         );
     }
 
+    /**
+     * Logs out the current user by invalidating their session
+     * @param session The current HTTP session to invalidate
+     * @return Empty response with 200 status
+     */
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(HttpSession session) {
         session.invalidate();
         return ResponseEntity.ok().build();
     }
 
+    /**
+     * Registers a new user in the system
+     * @param request Contains username, password and role for the new user
+     * @return Created user information with 201 status code
+     */
     @PostMapping("/register")
     public ResponseEntity<LoginResponse> register(@RequestBody RegisterRequest request) {
         User user = userService.createUser(

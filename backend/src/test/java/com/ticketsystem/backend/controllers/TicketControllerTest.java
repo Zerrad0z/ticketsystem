@@ -18,7 +18,6 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.web.servlet.mvc.method.annotation.ExceptionHandlerExceptionResolver;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -53,10 +52,8 @@ public class TicketControllerTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
 
-        // Create a custom exception handler
-        RestExceptionHandler exceptionHandler = new RestExceptionHandler();
+        GlobalExceptionHandler exceptionHandler = new GlobalExceptionHandler();
 
-        // Set up MockMvc with the exception handler
         mockMvc = MockMvcBuilders
                 .standaloneSetup(ticketController)
                 .setControllerAdvice(exceptionHandler)
@@ -82,10 +79,9 @@ public class TicketControllerTest {
 
     @Test
     void createTicket_ShouldCreateTicket() throws Exception {
-        // Arrange
+
         when(ticketService.createTicket(any(TicketDTO.class), anyLong())).thenReturn(ticketDTO);
 
-        // Act & Assert
         mockMvc.perform(post("/api/tickets")
                         .header("User-Id", employeeId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -99,11 +95,10 @@ public class TicketControllerTest {
 
     @Test
     void updateStatus_ShouldUpdateStatus() throws Exception {
-        // Arrange
+
         ticketDTO.setStatus(Status.IN_PROGRESS);
         when(ticketService.updateStatus(anyLong(), any(Status.class), anyLong())).thenReturn(ticketDTO);
 
-        // Act & Assert
         mockMvc.perform(put("/api/tickets/1/status")
                         .header("User-Id", itSupportId)
                         .param("newStatus", "IN_PROGRESS"))
@@ -113,11 +108,10 @@ public class TicketControllerTest {
 
     @Test
     void addComment_ShouldAddComment() throws Exception {
-        // Arrange
+
         String comment = "This is a test comment";
         when(ticketService.addComment(anyLong(), any(String.class), anyLong())).thenReturn(ticketDTO);
 
-        // Act & Assert
         mockMvc.perform(post("/api/tickets/1/comments")
                         .header("User-Id", itSupportId)
                         .contentType(MediaType.TEXT_PLAIN)
@@ -127,11 +121,10 @@ public class TicketControllerTest {
 
     @Test
     void getUserTickets_ShouldReturnUserTickets() throws Exception {
-        // Arrange
+
         List<TicketDTO> tickets = Arrays.asList(ticketDTO);
         when(ticketService.getUserTickets(employeeId)).thenReturn(tickets);
 
-        // Act & Assert
         mockMvc.perform(get("/api/tickets/user")
                         .header("User-Id", employeeId))
                 .andExpect(status().isOk())
@@ -142,11 +135,10 @@ public class TicketControllerTest {
 
     @Test
     void getAllTickets_AsITSupport_ShouldReturnAllTickets() throws Exception {
-        // Arrange
+
         List<TicketDTO> tickets = Arrays.asList(ticketDTO);
         when(ticketService.getAllTickets(itSupportId)).thenReturn(tickets);
 
-        // Act & Assert
         mockMvc.perform(get("/api/tickets")
                         .header("User-Id", itSupportId))
                 .andExpect(status().isOk())
@@ -156,10 +148,9 @@ public class TicketControllerTest {
 
     @Test
     void getAllTickets_AsEmployee_ShouldReturnForbidden() throws Exception {
-        // Arrange
+
         when(ticketService.getAllTickets(employeeId)).thenThrow(UnauthorizedAccessException.class);
 
-        // Act & Assert
         mockMvc.perform(get("/api/tickets")
                         .header("User-Id", employeeId))
                 .andExpect(status().isForbidden());
@@ -167,11 +158,10 @@ public class TicketControllerTest {
 
     @Test
     void getTicketsByStatus_ShouldReturnFilteredTickets() throws Exception {
-        // Arrange
+
         List<TicketDTO> tickets = Arrays.asList(ticketDTO);
         when(ticketService.getTicketsByStatus(Status.NEW, employeeId)).thenReturn(tickets);
 
-        // Act & Assert
         mockMvc.perform(get("/api/tickets/status/NEW")
                         .header("User-Id", employeeId))
                 .andExpect(status().isOk())
@@ -181,10 +171,9 @@ public class TicketControllerTest {
 
     @Test
     void getTicketById_ValidTicket_ShouldReturnTicket() throws Exception {
-        // Arrange
+
         when(ticketService.getTicketById(1L, employeeId)).thenReturn(ticketDTO);
 
-        // Act & Assert
         mockMvc.perform(get("/api/tickets/1")
                         .header("User-Id", employeeId))
                 .andExpect(status().isOk())
@@ -194,10 +183,9 @@ public class TicketControllerTest {
 
     @Test
     void getTicketById_InvalidTicket_ShouldReturnNotFound() throws Exception {
-        // Arrange
+
         when(ticketService.getTicketById(99L, employeeId)).thenThrow(TicketNotFoundException.class);
 
-        // Act & Assert
         mockMvc.perform(get("/api/tickets/99")
                         .header("User-Id", employeeId))
                 .andExpect(status().isNotFound());
@@ -205,7 +193,7 @@ public class TicketControllerTest {
 
     @Test
     void getAuditLogs_AsITSupport_ShouldReturnAuditLogs() throws Exception {
-        // Arrange
+
         AuditLogDTO auditLogDTO = new AuditLogDTO();
         auditLogDTO.setId(1L);
         auditLogDTO.setAction("STATUS_CHANGE");
@@ -215,7 +203,6 @@ public class TicketControllerTest {
         List<AuditLogDTO> auditLogs = Arrays.asList(auditLogDTO);
         when(ticketService.getAuditLogs(itSupportId)).thenReturn(auditLogs);
 
-        // Act & Assert
         mockMvc.perform(get("/api/tickets/audit-logs")
                         .header("User-Id", itSupportId))
                 .andExpect(status().isOk())
@@ -225,10 +212,9 @@ public class TicketControllerTest {
 
     @Test
     void getAuditLogs_AsEmployee_ShouldReturnForbidden() throws Exception {
-        // Arrange
+
         when(ticketService.getAuditLogs(employeeId)).thenThrow(UnauthorizedAccessException.class);
 
-        // Act & Assert
         mockMvc.perform(get("/api/tickets/audit-logs")
                         .header("User-Id", employeeId))
                 .andExpect(status().isForbidden());

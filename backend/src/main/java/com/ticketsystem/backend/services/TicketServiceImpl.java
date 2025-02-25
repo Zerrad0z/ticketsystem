@@ -13,13 +13,13 @@ import com.ticketsystem.backend.exceptions.TicketNotFoundException;
 import com.ticketsystem.backend.exceptions.UnauthorizedAccessException;
 import com.ticketsystem.backend.exceptions.UserNotFoundException;
 import com.ticketsystem.backend.mappers.AuditLogMapper;
-import com.ticketsystem.backend.mappers.CommentMapper;
 import com.ticketsystem.backend.mappers.TicketMapper;
 import com.ticketsystem.backend.repositories.TicketRepository;
 import com.ticketsystem.backend.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -27,22 +27,38 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Service implementation for ticket management operations
+ * Handles ticket creation, updates, comments, and retrieval with appropriate authorization
+ */
+
 @Service
 @RequiredArgsConstructor
 @Transactional
 @Slf4j
 public class TicketServiceImpl implements TicketService {
+
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
     private final TicketMapper ticketMapper;
-    private final CommentMapper commentMapper;
     private final AuditLogMapper auditLogMapper;
 
+    /**
+     * Validates user existence and retrieves the user
+     * @param userId ID of the user to validate
+     * @return The validated User entity
+     * @throws UserNotFoundException if user doesn't exist
+     */
     private User validateAndGetUser(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
     }
 
+    /**
+     * Validates that the user has IT Support role
+     * @param user The user to validate
+     * @throws UnauthorizedAccessException if user is not IT Support
+     */
     private void validateITSupport(User user) {
         if (user.getRole() != Role.ROLE_IT_SUPPORT) {
             log.warn("Unauthorized access attempt by non-IT support user: {}", user.getUsername());
@@ -52,6 +68,11 @@ public class TicketServiceImpl implements TicketService {
         }
     }
 
+    /**
+     * Validates ticket data for required fields
+     * @param ticketDTO The ticket data to validate
+     * @throws InvalidTicketDataException if any required field is missing
+     */
     private void validateTicketData(TicketDTO ticketDTO) {
         List<String> errors = new ArrayList<>();
 
@@ -75,6 +96,14 @@ public class TicketServiceImpl implements TicketService {
         }
     }
 
+    /**
+     * Creates a new ticket
+     * @param ticketDTO Data for the new ticket
+     * @param userId ID of the user creating the ticket
+     * @return DTO of the created ticket
+     * @throws InvalidTicketDataException if ticket data is invalid
+     * @throws UserNotFoundException if user doesn't exist
+     */
     @Override
     public TicketDTO createTicket(TicketDTO ticketDTO, Long userId) {
         log.debug("Creating new ticket for user ID: {}", userId);
@@ -90,6 +119,16 @@ public class TicketServiceImpl implements TicketService {
         return ticketMapper.toDTO(ticketRepository.save(ticket));
     }
 
+    /**
+     * Updates the status of an existing ticket
+     * @param ticketId ID of the ticket to update
+     * @param newStatus The new status to set
+     * @param userId ID of the user making the update
+     * @return DTO of the updated ticket
+     * @throws TicketNotFoundException if ticket doesn't exist
+     * @throws UserNotFoundException if user doesn't exist
+     * @throws UnauthorizedAccessException if user is not IT Support
+     */
     @Override
     public TicketDTO updateStatus(Long ticketId, Status newStatus, Long userId) {
         log.debug("Updating ticket status. Ticket ID: {}, New Status: {}", ticketId, newStatus);
@@ -103,6 +142,7 @@ public class TicketServiceImpl implements TicketService {
         ticket.setStatus(newStatus);
         ticket.setLastUpdated(LocalDateTime.now());
 
+        // Create audit log entry for the status change
         AuditLog auditLog = new AuditLog();
         auditLog.setAction("STATUS_CHANGE");
         auditLog.setOldValue(oldStatus.toString());
@@ -115,11 +155,23 @@ public class TicketServiceImpl implements TicketService {
         return ticketMapper.toDTO(ticketRepository.save(ticket));
     }
 
+    /**
+     * Adds a comment to an existing ticket
+     * @param ticketId ID of the ticket to comment on
+     * @param content The content of the comment
+     * @param userId ID of the user adding the comment
+     * @return DTO of the updated ticket
+     * @throws InvalidTicketDataException if comment content is empty
+     * @throws TicketNotFoundException if ticket doesn't exist
+     * @throws UserNotFoundException if user doesn't exist
+     * @throws UnauthorizedAccessException if user is not IT Support
+     */
     @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public TicketDTO addComment(Long ticketId, String content, Long userId) {
-        log.debug("Adding ticketComment to ticket ID: {}", ticketId);
+        log.debug("Adding Comment to ticket ID: {}", ticketId);
         if (content == null || content.trim().isEmpty()) {
-            throw new InvalidTicketDataException("TicketComment content cannot be empty");
+            throw new InvalidTicketDataException("Comment content cannot be empty");
         }
 
         User user = validateAndGetUser(userId);
@@ -128,6 +180,7 @@ public class TicketServiceImpl implements TicketService {
         Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new TicketNotFoundException(ticketId));
 
+        // Create and add the comment
         TicketComment ticketComment = new TicketComment();
         ticketComment.setContent(content.trim());
         ticketComment.setCreatedBy(user);
@@ -135,18 +188,35 @@ public class TicketServiceImpl implements TicketService {
         ticketComment.setTicket(ticket);
         ticket.getTicketComments().add(ticketComment);
 
+        // Create audit log entry for the comment
         AuditLog auditLog = new AuditLog();
         auditLog.setAction("COMMENT_ADDED");
-        auditLog.setNewValue("TicketComment added by " + user.getUsername());
+        auditLog.setNewValue("TEST MESSAGE " + System.currentTimeMillis());
+
+        // Display the actual comment content in the audit log
+        String truncatedContent = content.length() > 100 ?
+                content.substring(0, 97) + "..." :
+                content;
+        auditLog.setNewValue("\"" + truncatedContent + "\" - by " + user.getUsername());
+
         auditLog.setPerformedBy(user);
         auditLog.setTicket(ticket);
         auditLog.setCreatedDate(LocalDateTime.now());
         ticket.getAuditLogs().add(auditLog);
 
         ticket.setLastUpdated(LocalDateTime.now());
+        String logMessage = "\"" + truncatedContent + "\" - by " + user.getUsername();
+        auditLog.setNewValue(logMessage);
+        log.debug("Setting audit log new value to: {}", logMessage);
         return ticketMapper.toDTO(ticketRepository.save(ticket));
     }
 
+    /**
+     * Retrieves all tickets created by a specific user
+     * @param userId ID of the user whose tickets to retrieve
+     * @return List of ticket DTOs created by the user
+     * @throws UserNotFoundException if user doesn't exist
+     */
     @Override
     @Transactional(readOnly = true)
     public List<TicketDTO> getUserTickets(Long userId) {
@@ -155,6 +225,13 @@ public class TicketServiceImpl implements TicketService {
         return ticketMapper.toDTOList(ticketRepository.findByCreatedBy_Id(userId));
     }
 
+    /**
+     * Retrieves all tickets in the system (requires IT Support role)
+     * @param userId ID of the user making the request
+     * @return List of all ticket DTOs
+     * @throws UserNotFoundException if user doesn't exist
+     * @throws UnauthorizedAccessException if user is not IT Support
+     */
     @Override
     @Transactional(readOnly = true)
     public List<TicketDTO> getAllTickets(Long userId) {
@@ -165,6 +242,13 @@ public class TicketServiceImpl implements TicketService {
         return ticketMapper.toDTOList(ticketRepository.findAll());
     }
 
+    /**
+     * Retrieves tickets filtered by status
+     * @param status The status to filter by
+     * @param userId ID of the user making the request
+     * @return List of ticket DTOs with the specified status
+     * @throws UserNotFoundException if user doesn't exist
+     */
     @Override
     @Transactional(readOnly = true)
     public List<TicketDTO> getTicketsByStatus(Status status, Long userId) {
@@ -173,6 +257,15 @@ public class TicketServiceImpl implements TicketService {
         return ticketMapper.toDTOList(ticketRepository.findByStatus(status));
     }
 
+    /**
+     * Retrieves a specific ticket by ID
+     * @param ticketId ID of the ticket to retrieve
+     * @param userId ID of the user making the request
+     * @return DTO of the requested ticket
+     * @throws TicketNotFoundException if ticket doesn't exist
+     * @throws UserNotFoundException if user doesn't exist
+     * @throws UnauthorizedAccessException if user doesn't have permission to view the ticket
+     */
     @Override
     @Transactional(readOnly = true)
     public TicketDTO getTicketById(Long ticketId, Long userId) {
@@ -181,6 +274,7 @@ public class TicketServiceImpl implements TicketService {
         Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new TicketNotFoundException(ticketId));
 
+        // Validate that the user has permission to view this ticket
         if (user.getRole() != Role.ROLE_IT_SUPPORT &&
                 !ticket.getCreatedBy().getId().equals(userId)) {
             log.warn("Unauthorized access attempt to ticket ID: {} by user ID: {}", ticketId, userId);
@@ -192,6 +286,13 @@ public class TicketServiceImpl implements TicketService {
         return ticketMapper.toDTO(ticket);
     }
 
+    /**
+     * Retrieves all audit logs in the system (requires IT Support role)
+     * @param userId ID of the user making the request
+     * @return List of audit log DTOs
+     * @throws UserNotFoundException if user doesn't exist
+     * @throws UnauthorizedAccessException if user is not IT Support
+     */
     @Override
     @Transactional(readOnly = true)
     public List<AuditLogDTO> getAuditLogs(Long userId) {

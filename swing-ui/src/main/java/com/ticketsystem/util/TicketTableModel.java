@@ -7,7 +7,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-// Inner class for ticket table model
 public class TicketTableModel extends AbstractTableModel {
     private final String[] columnNames = {
             "ID", "Title", "Priority", "Category", "Status", "Created Date", "Last Updated"
