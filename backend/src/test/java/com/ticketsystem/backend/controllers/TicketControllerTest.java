@@ -77,7 +77,7 @@ public class TicketControllerTest {
         ticketDTO.setCreatedDate(LocalDateTime.now());
         ticketDTO.setLastUpdated(LocalDateTime.now());
         ticketDTO.setCreatedById(employeeId);
-        ticketDTO.setComments(new ArrayList<>());
+        ticketDTO.setTicketComments(new ArrayList<>());
     }
 
     @Test

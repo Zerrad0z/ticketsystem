@@ -9,11 +9,13 @@ import java.util.List;
 
 @Mapper(componentModel = "spring", uses = {CommentMapper.class, AuditLogMapper.class})
 public interface TicketMapper {
+
+    @Mapping(target = "ticketComments", source = "ticketComments")
     @Mapping(target = "createdById", source = "createdBy.id")
     TicketDTO toDTO(Ticket ticket);
 
     @Mapping(target = "createdBy", ignore = true)
-    @Mapping(target = "comments", ignore = true)
+    @Mapping(target = "ticketComments", ignore = true)
     @Mapping(target = "auditLogs", ignore = true)
     Ticket toEntity(TicketDTO ticketDTO);
 

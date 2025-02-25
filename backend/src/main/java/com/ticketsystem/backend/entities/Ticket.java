@@ -39,7 +39,7 @@ public class Ticket {
     private User createdBy;
 
     @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL)
-    private List<Comment> comments = new ArrayList<>();
+    private List<TicketComment> ticketComments = new ArrayList<>();
 
     @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL)
     private List<AuditLog> auditLogs = new ArrayList<>();

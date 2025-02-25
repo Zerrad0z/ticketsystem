@@ -121,9 +121,9 @@ Updates the status of a ticket (IT Support only).
 
 ### Add Comment to Ticket
 
-Adds a comment to a ticket (IT Support only).
+Adds a ticketComment to a ticket (IT Support only).
 
-- **URL**: `/tickets/{ticketId}/comments`
+- **URL**: `/tickets/{ticketId}/ticketComment`
 - **Method**: `POST`
 - **Auth Required**: Yes
 - **Headers**: `User-Id: {userId}`
@@ -136,7 +136,7 @@ Adds a comment to a ticket (IT Support only).
 - **Error Response**:
   - **Code**: `404 NOT FOUND` - If ticket not found
   - **Code**: `403 FORBIDDEN` - If not IT Support
-  - **Code**: `400 BAD REQUEST` - If comment content is empty
+  - **Code**: `400 BAD REQUEST` - If ticketComment content is empty
 
 ### Get User's Tickets
 
@@ -274,7 +274,7 @@ Deletes a user by ID.
     "username": "string",
     "role": "string"
   },
-  "comments": [
+  "ticketComment": [
     {
       "id": "long",
       "content": "string",

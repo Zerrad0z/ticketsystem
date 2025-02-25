@@ -3,7 +3,7 @@ package com.ticketsystem.backend.services;
 import com.ticketsystem.backend.dtos.AuditLogDTO;
 import com.ticketsystem.backend.dtos.TicketDTO;
 import com.ticketsystem.backend.entities.AuditLog;
-import com.ticketsystem.backend.entities.Comment;
+import com.ticketsystem.backend.entities.TicketComment;
 import com.ticketsystem.backend.entities.Ticket;
 import com.ticketsystem.backend.entities.User;
 import com.ticketsystem.backend.enums.Role;
@@ -117,9 +117,9 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     public TicketDTO addComment(Long ticketId, String content, Long userId) {
-        log.debug("Adding comment to ticket ID: {}", ticketId);
+        log.debug("Adding ticketComment to ticket ID: {}", ticketId);
         if (content == null || content.trim().isEmpty()) {
-            throw new InvalidTicketDataException("Comment content cannot be empty");
+            throw new InvalidTicketDataException("TicketComment content cannot be empty");
         }
 
         User user = validateAndGetUser(userId);
@@ -128,16 +128,16 @@ public class TicketServiceImpl implements TicketService {
         Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new TicketNotFoundException(ticketId));
 
-        Comment comment = new Comment();
-        comment.setContent(content.trim());
-        comment.setCreatedBy(user);
-        comment.setCreatedDate(LocalDateTime.now());
-        comment.setTicket(ticket);
-        ticket.getComments().add(comment);
+        TicketComment ticketComment = new TicketComment();
+        ticketComment.setContent(content.trim());
+        ticketComment.setCreatedBy(user);
+        ticketComment.setCreatedDate(LocalDateTime.now());
+        ticketComment.setTicket(ticket);
+        ticket.getTicketComments().add(ticketComment);
 
         AuditLog auditLog = new AuditLog();
         auditLog.setAction("COMMENT_ADDED");
-        auditLog.setNewValue("Comment added by " + user.getUsername());
+        auditLog.setNewValue("TicketComment added by " + user.getUsername());
         auditLog.setPerformedBy(user);
         auditLog.setTicket(ticket);
         auditLog.setCreatedDate(LocalDateTime.now());

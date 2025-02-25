@@ -87,7 +87,7 @@ public class TicketServiceImplTest {
         ticket.setCreatedBy(employee);
         ticket.setCreatedDate(LocalDateTime.now());
         ticket.setLastUpdated(LocalDateTime.now());
-        ticket.setComments(new ArrayList<>());
+        ticket.setTicketComments(new ArrayList<>());
         ticket.setAuditLogs(new ArrayList<>());
 
         // Setup ticketDTO

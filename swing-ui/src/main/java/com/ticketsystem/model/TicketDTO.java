@@ -1,11 +1,6 @@
-package com.ticketsystem.backend.dtos;
+package com.ticketsystem.model;
 
-import com.ticketsystem.backend.enums.Category;
-import com.ticketsystem.backend.enums.Priority;
-import com.ticketsystem.backend.enums.Status;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
@@ -14,8 +9,6 @@ import java.util.List;
 
 @Getter
 @Setter
-@NoArgsConstructor
-@AllArgsConstructor
 public class TicketDTO {
     private Long id;
     private String title;
@@ -26,5 +19,6 @@ public class TicketDTO {
     private LocalDateTime createdDate;
     private LocalDateTime lastUpdated;
     private Long createdById;
-    private List<CommentDTO> ticketComments = new ArrayList<>();
+    private List<CommentDTO> comments = new ArrayList<>();
 }
+

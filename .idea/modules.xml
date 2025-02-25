@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/ticketsystem.iml" filepath="$PROJECT_DIR$/.idea/ticketsystem.iml" />
+      <module fileurl="file://$PROJECT_DIR$/swing-ui/swing-ui.iml" filepath="$PROJECT_DIR$/swing-ui/swing-ui.iml" />
     </modules>
   </component>
 </project>
