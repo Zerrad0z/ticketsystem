@@ -765,7 +765,7 @@ public class TicketSystemClient extends JFrame {
         searchBarPanel.setBackground(SURFACE_COLOR);
 
         // Search type combo box with modern styling
-        String[] searchOptions = {"ID", "Title", "Status", "Priority", "Category"};
+        String[] searchOptions = {"ID", "Title"};
         JComboBox<String> searchTypeCombo = new JComboBox<>(searchOptions);
         searchTypeCombo.setFont(REGULAR_FONT);
         searchTypeCombo.setBackground(SURFACE_COLOR);
