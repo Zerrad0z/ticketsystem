@@ -1,10 +1,12 @@
 package com.ticketsystem.ui;
 
 import javax.swing.*;
-
 import com.ticketsystem.model.*;
+import com.ticketsystem.util.TicketTableModel;
 import net.miginfocom.swing.MigLayout;
 import com.ticketsystem.service.APIClient;
+
+import javax.swing.border.Border;
 import javax.swing.border.TitledBorder;
 import javax.swing.table.*;
 import java.awt.*;
@@ -18,62 +20,103 @@ import java.util.Date;
 import java.util.List;
 import java.util.regex.Pattern;
 
+
 public class TicketSystemClient extends JFrame {
+    // Main panels
     private JPanel contentPanel;
     private CardLayout cardLayout;
     private JPanel loginPanel;
     private JPanel mainPanel;
+
+    // Login components
     private JTextField usernameField;
     private JPasswordField passwordField;
+
+    // Service components
     private APIClient apiClient;
+    private UserDTO currentUser;
+
+    // Table components
     private TicketTableModel ticketTableModel;
     private JTable ticketsTable;
-    private UserDTO currentUser;
+
+    // Action buttons
     private JButton changeStatusButton;
     private JButton addCommentButton;
     private JButton viewAuditLogButton;
 
-    // Color scheme
-    private final Color PRIMARY_COLOR = new Color(41, 128, 185); // Blue
-    private final Color SECONDARY_COLOR = new Color(52, 152, 219); // Lighter blue
-    private final Color ACCENT_COLOR = new Color(46, 204, 113); // Green
-    private final Color BACKGROUND_COLOR = new Color(245, 245, 245); // Light gray
-    private final Color TEXT_COLOR = new Color(52, 73, 94); // Dark blue-gray
-    private final Color ERROR_COLOR = new Color(231, 76, 60); // Red
+    // Color scheme - Modern flat design palette
+    private final Color PRIMARY_COLOR = new Color(25, 118, 210);      // Material Blue
+    private final Color SECONDARY_COLOR = new Color(66, 165, 245);    // Lighter blue
+    private final Color ACCENT_COLOR = new Color(76, 175, 80);        // Material Green
+    private final Color BACKGROUND_COLOR = new Color(250, 250, 250);  // Off-white
+    private final Color TEXT_COLOR = new Color(33, 33, 33);           // Dark gray
+    private final Color ERROR_COLOR = new Color(211, 47, 47);         // Material Red
+    private final Color SURFACE_COLOR = Color.WHITE;                  // Pure white for content areas
 
-    // Fonts
-    private final Font TITLE_FONT = new Font("Segoe UI", Font.BOLD, 28);
+    // Typography
+    private final Font TITLE_FONT = new Font("Segoe UI", Font.BOLD, 24);
     private final Font HEADER_FONT = new Font("Segoe UI", Font.BOLD, 18);
     private final Font REGULAR_FONT = new Font("Segoe UI", Font.PLAIN, 14);
-    private final Font BUTTON_FONT = new Font("Segoe UI", Font.BOLD, 14);
+    private final Font BUTTON_FONT = new Font("Segoe UI", Font.PLAIN, 14);
     private final Font SMALL_FONT = new Font("Segoe UI", Font.PLAIN, 12);
 
     public TicketSystemClient() {
+        // Initialize API client
         apiClient = new APIClient("http://localhost:8080/api");
+
+        // Set up the application frame
         setupFrame();
 
-        // Initialize card layout
+        // Initialize card layout for navigation
         cardLayout = new CardLayout();
         contentPanel = new JPanel(cardLayout);
         contentPanel.setBackground(BACKGROUND_COLOR);
 
+        // Create login panel
         createLoginPanel();
-
         contentPanel.add(loginPanel, "login");
         add(contentPanel);
         cardLayout.show(contentPanel, "login");
 
-        // Apply look and feel
+        // Apply modern look and feel
+        applyLookAndFeel();
+    }
+
+    private void setupFrame() {
+        setTitle("IT Support Ticket System");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(1200, 800);
+        setMinimumSize(new Dimension(800, 600));
+        setLocationRelativeTo(null);
+
+        // Set application icon
         try {
+            setIconImage(createImageIcon("/icons/ticket_icon.png", "App Icon").getImage());
+        } catch (Exception e) {
+            // Use a default icon if the image can't be loaded
+            setIconImage(createDefaultIcon(16, 16, PRIMARY_COLOR));
+        }
+    }
+
+    private void applyLookAndFeel() {
+        try {
+            // Try to use FlatLaf or Nimbus for a modern look
             for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
+                if ("FlatLaf".equals(info.getName()) || "Nimbus".equals(info.getName())) {
                     UIManager.setLookAndFeel(info.getClassName());
                     break;
                 }
             }
+
+            // Set some UI manager properties for consistent styling
+            UIManager.put("ToolTip.background", SURFACE_COLOR);
+            UIManager.put("ToolTip.foreground", TEXT_COLOR);
+            UIManager.put("ToolTip.border", BorderFactory.createLineBorder(SECONDARY_COLOR, 1));
+
             SwingUtilities.updateComponentTreeUI(this);
         } catch (Exception e) {
-            System.out.println("Nimbus look and feel not available, using default");
+            System.out.println("Modern look and feel not available, using default");
         }
     }
 
@@ -81,63 +124,36 @@ public class TicketSystemClient extends JFrame {
         loginPanel = new JPanel(new MigLayout("fill, insets 0", "[grow]", "[grow]"));
         loginPanel.setBackground(BACKGROUND_COLOR);
 
-        // Create main content panel with shadow effect
-        JPanel loginContentPanel = new JPanel(new MigLayout("fill, insets 40", "[grow]", "[]30[][]30[]"));
-        loginContentPanel.setBackground(Color.WHITE);
-        loginContentPanel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(0, 0, 0, 20), 1),
-                BorderFactory.createEmptyBorder(30, 40, 30, 40)
-        ));
+        // Create login card with shadow effect
+        JPanel loginCard = new JPanel(new MigLayout("fill, insets 40", "[grow]", "[]30[][]30[]"));
+        loginCard.setBackground(SURFACE_COLOR);
+        loginCard.setBorder(createCardBorder());
 
-        // Add logo/image at the top
+        // Create logo and branding
         ImageIcon logoIcon = createImageIcon("/icons/support_logo.png", "IT Support Logo");
         JLabel logoLabel = new JLabel(logoIcon);
         logoLabel.setHorizontalAlignment(SwingConstants.CENTER);
 
-        // Create title with custom font and size
+        // Create title
         JLabel titleLabel = new JLabel("IT Support Ticket System");
         titleLabel.setFont(TITLE_FONT);
         titleLabel.setForeground(PRIMARY_COLOR);
         titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
 
-        // Create input fields with larger size and placeholder text
+        // Create input fields with enhanced styling
         usernameField = createStyledTextField("Username", 20);
         passwordField = createStyledPasswordField("Password", 20);
 
         // Add icon to text fields
-        JPanel usernamePanel = new JPanel(new BorderLayout());
-        usernamePanel.setBackground(Color.WHITE);
-        JLabel userIcon = new JLabel(createImageIcon("/icons/user_icon.png", "User"));
-        userIcon.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 10));
-        usernamePanel.add(userIcon, BorderLayout.WEST);
-        usernamePanel.add(usernameField, BorderLayout.CENTER);
+        JPanel usernamePanel = createIconTextField(usernameField, "/icons/user_icon.png", "User");
+        JPanel passwordPanel = createIconTextField(passwordField, "/icons/lock_icon.png", "Lock");
 
-        JPanel passwordPanel = new JPanel(new BorderLayout());
-        passwordPanel.setBackground(Color.WHITE);
-        JLabel lockIcon = new JLabel(createImageIcon("/icons/lock_icon.png", "Lock"));
-        lockIcon.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 10));
-        passwordPanel.add(lockIcon, BorderLayout.WEST);
-        passwordPanel.add(passwordField, BorderLayout.CENTER);
-
-        // Create buttons with custom styling
+        // Create buttons
         JButton loginButton = createPrimaryButton("Login");
         JButton registerButton = createLinkButton("Create Account");
 
-        // Add components to content panel
-        loginContentPanel.add(logoLabel, "cell 0 0, center");
-        loginContentPanel.add(titleLabel, "cell 0 1, center");
-        loginContentPanel.add(usernamePanel, "cell 0 2, center, growx, width 300!");
-        loginContentPanel.add(passwordPanel, "cell 0 3, center, growx, width 300!");
-        loginContentPanel.add(loginButton, "cell 0 4, center, width 300!");
-        loginContentPanel.add(registerButton, "cell 0 5, center, gaptop 15");
-
-        // Add content panel to login panel with centering
-        loginPanel.add(loginContentPanel, "cell 0 0, width 450!, center, height 550!, center");
-
-        // Add login action
+        // Add action listeners
         loginButton.addActionListener(e -> handleLogin());
-
-        // Add register action that opens a dialog
         registerButton.addActionListener(e -> showRegisterDialog());
 
         // Add enter key listener
@@ -151,6 +167,41 @@ public class TicketSystemClient extends JFrame {
         };
         usernameField.addKeyListener(enterKeyListener);
         passwordField.addKeyListener(enterKeyListener);
+
+        // Add components to login card
+        loginCard.add(logoLabel, "cell 0 0, center");
+        loginCard.add(titleLabel, "cell 0 1, center");
+        loginCard.add(usernamePanel, "cell 0 2, center, growx, width 300!");
+        loginCard.add(passwordPanel, "cell 0 3, center, growx, width 300!");
+        loginCard.add(loginButton, "cell 0 4, center, width 300!");
+        loginCard.add(registerButton, "cell 0 5, center, gaptop 15");
+
+        // Add login card to panel with centering
+        loginPanel.add(loginCard, "cell 0 0, width 450!, center, height 550!, center");
+    }
+
+    private JPanel createIconTextField(JTextField field, String iconPath, String iconDesc) {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(SURFACE_COLOR);
+
+        JLabel iconLabel = new JLabel(createImageIcon(iconPath, iconDesc));
+        iconLabel.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 8));
+
+        panel.add(iconLabel, BorderLayout.WEST);
+        panel.add(field, BorderLayout.CENTER);
+
+        return panel;
+    }
+
+    private Border createCardBorder() {
+        // Create a compound border with subtle shadow effect
+        return BorderFactory.createCompoundBorder(
+                BorderFactory.createCompoundBorder(
+                        BorderFactory.createEmptyBorder(5, 5, 5, 5),
+                        BorderFactory.createLineBorder(new Color(0, 0, 0, 20), 1)
+                ),
+                BorderFactory.createEmptyBorder(15, 15, 15, 15)
+        );
     }
 
     private JTextField createStyledTextField(String placeholder, int columns) {
@@ -189,19 +240,51 @@ public class TicketSystemClient extends JFrame {
         button.setPreferredSize(new Dimension(250, 45));
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
         button.setOpaque(true);
+
+        // Add hover effect
+        button.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                button.setBackground(new Color(
+                        Math.min(PRIMARY_COLOR.getRed() + 20, 255),
+                        Math.min(PRIMARY_COLOR.getGreen() + 20, 255),
+                        Math.min(PRIMARY_COLOR.getBlue() + 20, 255)
+                ));
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                button.setBackground(PRIMARY_COLOR);
+            }
+        });
+
         return button;
     }
 
     private JButton createSecondaryButton(String text) {
         JButton button = new JButton(text);
         button.setFont(BUTTON_FONT);
-        button.setBackground(Color.WHITE);
+        button.setBackground(SURFACE_COLOR);
         button.setForeground(PRIMARY_COLOR);
         button.setBorder(BorderFactory.createLineBorder(PRIMARY_COLOR, 2));
         button.setFocusPainted(false);
         button.setPreferredSize(new Dimension(250, 45));
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
         button.setOpaque(true);
+
+        // Add hover effect
+        button.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                button.setBackground(new Color(240, 245, 255));
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                button.setBackground(SURFACE_COLOR);
+            }
+        });
+
         return button;
     }
 
@@ -213,26 +296,42 @@ public class TicketSystemClient extends JFrame {
         button.setContentAreaFilled(false);
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
         button.setFocusPainted(false);
+
+        // Add hover effect
+        button.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                button.setForeground(PRIMARY_COLOR);
+                button.setText("<html><u>" + text + "</u></html>");
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                button.setForeground(SECONDARY_COLOR);
+                button.setText(text);
+            }
+        });
+
         return button;
     }
 
     private void showRegisterDialog() {
         JDialog dialog = new JDialog(this, "Create New Account", true);
         dialog.setLayout(new MigLayout("fillx, insets 30", "[right][grow]", "[]25[]15[]15[]25[]"));
-        dialog.getContentPane().setBackground(Color.WHITE);
+        dialog.getContentPane().setBackground(SURFACE_COLOR);
 
+        // Create styled components
         JTextField regUsernameField = createStyledTextField("Username", 20);
         JPasswordField regPasswordField = createStyledPasswordField("Password", 20);
         JComboBox<Role> roleComboBox = new JComboBox<>(Role.values());
         roleComboBox.setPreferredSize(new Dimension(250, 40));
         roleComboBox.setFont(REGULAR_FONT);
 
-        // Style components
+        // Create title and labels
         JLabel titleLabel = new JLabel("Create Account");
         titleLabel.setFont(HEADER_FONT);
         titleLabel.setForeground(PRIMARY_COLOR);
 
-        // Create labels with custom font
         JLabel usernameLabel = new JLabel("Username:");
         JLabel passwordLabel = new JLabel("Password:");
         JLabel roleLabel = new JLabel("Role:");
@@ -240,12 +339,12 @@ public class TicketSystemClient extends JFrame {
         passwordLabel.setFont(REGULAR_FONT);
         roleLabel.setFont(REGULAR_FONT);
 
-        // Create register button
+        // Create buttons
         JButton submitButton = createPrimaryButton("Register");
         JButton cancelButton = createSecondaryButton("Cancel");
 
+        // Add action listeners
         cancelButton.addActionListener(e -> dialog.dispose());
-
         submitButton.addActionListener(e -> {
             try {
                 String username = regUsernameField.getText();
@@ -253,10 +352,7 @@ public class TicketSystemClient extends JFrame {
                 Role role = (Role) roleComboBox.getSelectedItem();
 
                 if (username.isEmpty() || password.isEmpty()) {
-                    JOptionPane.showMessageDialog(dialog,
-                            "Please enter both username and password",
-                            "Registration Error",
-                            JOptionPane.WARNING_MESSAGE);
+                    showErrorDialog(dialog, "Registration Error", "Please enter both username and password");
                     return;
                 }
 
@@ -281,12 +377,12 @@ public class TicketSystemClient extends JFrame {
         dialog.add(roleComboBox, "cell 1 3, growx");
 
         JPanel buttonPanel = new JPanel(new MigLayout("insets 0", "[grow][grow]", "[]"));
-        buttonPanel.setBackground(Color.WHITE);
+        buttonPanel.setBackground(SURFACE_COLOR);
         buttonPanel.add(cancelButton, "cell 0 0, growx");
         buttonPanel.add(submitButton, "cell 1 0, growx");
-
         dialog.add(buttonPanel, "span 2, growx, gaptop 20");
 
+        // Configure dialog
         dialog.pack();
         dialog.setSize(450, 400);
         dialog.setLocationRelativeTo(this);
@@ -393,7 +489,7 @@ public class TicketSystemClient extends JFrame {
     private void showErrorDialog(Component parent, String title, String message) {
         JDialog errorDialog = new JDialog(this, title, true);
         errorDialog.setLayout(new MigLayout("fill, insets 20", "[center]", "[]20[]"));
-        errorDialog.getContentPane().setBackground(Color.WHITE);
+        errorDialog.getContentPane().setBackground(SURFACE_COLOR);
 
         // Error icon
         JLabel iconLabel = new JLabel(UIManager.getIcon("OptionPane.errorIcon"));
@@ -415,7 +511,6 @@ public class TicketSystemClient extends JFrame {
         errorDialog.setLocationRelativeTo(parent);
         errorDialog.setVisible(true);
     }
-    // Continuing from TicketSystemClient class
 
     private void createMainPanel() {
         mainPanel = new JPanel(new BorderLayout(0, 0));
@@ -443,7 +538,6 @@ public class TicketSystemClient extends JFrame {
         mainContentPanel.setBackground(BACKGROUND_COLOR);
         mainContentPanel.add(headerPanel, BorderLayout.NORTH);
         mainContentPanel.add(filterSearchPanel, BorderLayout.CENTER);
-
         contentArea.add(mainContentPanel, BorderLayout.NORTH);
         contentArea.add(tablePanel, BorderLayout.CENTER);
 
@@ -456,12 +550,12 @@ public class TicketSystemClient extends JFrame {
 
     private JPanel createSidebar() {
         JPanel sidebar = new JPanel(new BorderLayout());
-        sidebar.setPreferredSize(new Dimension(220, 0));
+        sidebar.setPreferredSize(new Dimension(240, 0));
         sidebar.setBackground(PRIMARY_COLOR);
 
         // Logo panel at the top
         JPanel logoPanel = new JPanel(new BorderLayout());
-        logoPanel.setBackground(new Color(41, 128, 185));
+        logoPanel.setBackground(new Color(13, 71, 161)); // Darker blue
         logoPanel.setBorder(BorderFactory.createEmptyBorder(20, 15, 20, 15));
 
         JLabel appTitle = new JLabel("IT Support Desk");
@@ -471,22 +565,21 @@ public class TicketSystemClient extends JFrame {
 
         // User info panel
         JPanel userPanel = new JPanel(new BorderLayout());
-        userPanel.setBackground(new Color(52, 152, 219));
+        userPanel.setBackground(new Color(25, 118, 210)); // Primary color
         userPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
         JLabel userLabel = new JLabel(currentUser.getUsername());
         userLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
         userLabel.setForeground(Color.WHITE);
 
-        JLabel roleLabel = new JLabel(currentUser.getRole());
+        JLabel roleLabel = new JLabel(currentUser.getRole().toString());
         roleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         roleLabel.setForeground(new Color(236, 240, 241));
 
         JPanel userInfoPanel = new JPanel(new MigLayout("insets 0", "[]", "[]0[]"));
-        userInfoPanel.setBackground(new Color(52, 152, 219));
+        userInfoPanel.setBackground(new Color(25, 118, 210));
         userInfoPanel.add(userLabel, "wrap");
         userInfoPanel.add(roleLabel);
-
         userPanel.add(userInfoPanel, BorderLayout.CENTER);
 
         // Menu items
@@ -497,7 +590,7 @@ public class TicketSystemClient extends JFrame {
         JButton ticketsButton = createSidebarButton("Tickets", "/icons/ticket.png");
 
         // Set tickets button as active
-        ticketsButton.setBackground(new Color(36, 113, 163));
+        ticketsButton.setBackground(new Color(13, 71, 161)); // Darker blue
         ticketsButton.setIcon(createImageIcon("/icons/ticket_white.png", "Tickets"));
 
         JButton logoutButton = createSidebarButton("Logout", "/icons/logout.png");
@@ -509,7 +602,6 @@ public class TicketSystemClient extends JFrame {
         if (currentUser.isItSupport()) {
             JButton reportsButton = createSidebarButton("Audit Logs", "/icons/reports.png");
             menuPanel.add(reportsButton, "growx, wrap");
-
             reportsButton.addActionListener(e -> showAuditLogDialog());
         }
 
@@ -540,22 +632,22 @@ public class TicketSystemClient extends JFrame {
         button.setFocusPainted(false);
         button.setHorizontalAlignment(SwingConstants.LEFT);
         button.setIcon(createImageIcon(iconPath, text));
-        button.setIconTextGap(10);
+        button.setIconTextGap(12);
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        button.setPreferredSize(new Dimension(200, 45));
+        button.setPreferredSize(new Dimension(220, 48));
 
         // Add hover effect
         button.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseEntered(MouseEvent e) {
                 if (button.getBackground().equals(PRIMARY_COLOR)) {
-                    button.setBackground(new Color(36, 113, 163));
+                    button.setBackground(new Color(13, 71, 161)); // Darker blue
                 }
             }
 
             @Override
             public void mouseExited(MouseEvent e) {
-                if (!text.equals("Tickets")) {  // Keep Tickets button highlighted
+                if (!text.equals("Tickets")) { // Keep Tickets button highlighted
                     button.setBackground(PRIMARY_COLOR);
                 }
             }
@@ -566,18 +658,27 @@ public class TicketSystemClient extends JFrame {
 
     private JPanel createHeaderPanel() {
         JPanel headerPanel = new JPanel(new BorderLayout());
-        headerPanel.setBackground(Color.WHITE);
+        headerPanel.setBackground(SURFACE_COLOR);
         headerPanel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(218, 218, 218), 1),
                 BorderFactory.createEmptyBorder(15, 20, 15, 20)
         ));
 
+        // Title with icon
+        JPanel titlePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        titlePanel.setBackground(SURFACE_COLOR);
+
+        JLabel iconLabel = new JLabel(createImageIcon("/icons/ticket_management.png", "Tickets"));
         JLabel titleLabel = new JLabel("Ticket Management");
         titleLabel.setFont(HEADER_FONT);
         titleLabel.setForeground(TEXT_COLOR);
 
+        titlePanel.add(iconLabel);
+        titlePanel.add(titleLabel);
+
+        // Action panel
         JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
-        actionPanel.setBackground(Color.WHITE);
+        actionPanel.setBackground(SURFACE_COLOR);
 
         // Add action buttons based on role
         if (!currentUser.isItSupport()) {
@@ -591,8 +692,20 @@ public class TicketSystemClient extends JFrame {
             createTicketButton.setIcon(createImageIcon("/icons/add_ticket.png", "Create"));
             createTicketButton.setIconTextGap(10);
 
-            createTicketButton.addActionListener(e -> showCreateTicketDialog());
+            // Add hover effect
+            createTicketButton.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseEntered(MouseEvent e) {
+                    createTicketButton.setBackground(new Color(67, 160, 71)); // Darker green
+                }
 
+                @Override
+                public void mouseExited(MouseEvent e) {
+                    createTicketButton.setBackground(ACCENT_COLOR);
+                }
+            });
+
+            createTicketButton.addActionListener(e -> showCreateTicketDialog());
             actionPanel.add(createTicketButton);
         } else {
             // Refresh button for IT support
@@ -606,18 +719,29 @@ public class TicketSystemClient extends JFrame {
             refreshButton.setIcon(createImageIcon("/icons/refresh.png", "Refresh"));
             refreshButton.setIconTextGap(10);
 
-            refreshButton.addActionListener(e -> refreshTickets());
+            // Add hover effect
+            refreshButton.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseEntered(MouseEvent e) {
+                    refreshButton.setBackground(new Color(30, 136, 229)); // Darker blue
+                }
 
+                @Override
+                public void mouseExited(MouseEvent e) {
+                    refreshButton.setBackground(SECONDARY_COLOR);
+                }
+            });
+
+            refreshButton.addActionListener(e -> refreshTickets());
             actionPanel.add(refreshButton);
         }
 
-        headerPanel.add(titleLabel, BorderLayout.WEST);
+        headerPanel.add(titlePanel, BorderLayout.WEST);
         headerPanel.add(actionPanel, BorderLayout.EAST);
 
         return headerPanel;
     }
 
-    // Replace your existing createFilterSearchPanel method with this
     private JPanel createFilterSearchPanel() {
         JPanel filterSearchPanel = new JPanel(new MigLayout("fillx, insets 0", "[grow]", "[]"));
         filterSearchPanel.setBackground(BACKGROUND_COLOR);
@@ -631,132 +755,219 @@ public class TicketSystemClient extends JFrame {
         return filterSearchPanel;
     }
 
-    // Add this method to fix the missing icon issue
-    private void fixMissingIcons() {
-        // This method creates a helper class to handle missing icons
-        // Call this in your constructor after initializing apiClient
-
-        // Fix ticket_icon.png for frame icon
-        if (getIconImage().getWidth(null) <= 0) {
-            setIconImage(createDefaultIcon(16, 16, PRIMARY_COLOR));
-        }
-    }
-
-    // Helper method to create default icons when image files aren't found
-    private Image createDefaultIcon(int width, int height, Color color) {
-        BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g2d = img.createGraphics();
-        g2d.setColor(color);
-        g2d.fillRect(0, 0, width, height);
-        g2d.dispose();
-        return img;
-    }
-
-    // Update your createImageIcon method to provide fallback icons
-    private ImageIcon createImageIcon(String path, String description) {
-        java.net.URL imgURL = getClass().getResource(path);
-        if (imgURL != null) {
-            return new ImageIcon(imgURL, description);
-        } else {
-            // Create a simple colored square as fallback
-            int size = 16;
-            Color iconColor = PRIMARY_COLOR;
-
-            // Use different colors based on icon type
-            if (path.contains("user")) {
-                iconColor = new Color(52, 152, 219);
-                size = 20;
-            } else if (path.contains("lock")) {
-                iconColor = new Color(231, 76, 60);
-                size = 20;
-            } else if (path.contains("search")) {
-                iconColor = new Color(149, 165, 166);
-            } else if (path.contains("clear")) {
-                iconColor = new Color(189, 195, 199);
-            } else if (path.contains("add")) {
-                iconColor = ACCENT_COLOR;
-            }
-
-            return new ImageIcon(createDefaultIcon(size, size, iconColor), description);
-        }
-    }
-
-    private JPanel createFilterPanel() {
-        JPanel filterPanel = new JPanel(new MigLayout("", "[][90][]90[]90[]", "[]"));
-        filterPanel.setBackground(Color.WHITE);
-        filterPanel.setBorder(BorderFactory.createCompoundBorder(
+    private JPanel createEnhancedSearchPanel() {
+        JPanel searchPanel = new JPanel(new MigLayout("fillx, insets 0", "[grow][]", "[][]"));
+        searchPanel.setBackground(SURFACE_COLOR);
+        searchPanel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(218, 218, 218), 1),
-                BorderFactory.createEmptyBorder(8, 15, 8, 15)
+                BorderFactory.createEmptyBorder(15, 20, 15, 20)
         ));
 
-        // Category filter
-        JComboBox<String> categoryFilter = new JComboBox<>(new String[]{"All Categories",
-                "NETWORK", "HARDWARE", "SOFTWARE", "OTHER"});
-        categoryFilter.setFont(SMALL_FONT);
+        // Create search bar
+        JPanel searchBarPanel = new JPanel(new MigLayout("fillx, insets 0", "[100][grow][100]", "[]"));
+        searchBarPanel.setBackground(SURFACE_COLOR);
 
-        // Priority filter
-        JComboBox<String> priorityFilter = new JComboBox<>(new String[]{"All Priorities",
-                "LOW", "MEDIUM", "HIGH"});
-        priorityFilter.setFont(SMALL_FONT);
+        // Search type combo box with modern styling
+        String[] searchOptions = {"ID", "Title", "Status", "Priority", "Category"};
+        JComboBox<String> searchTypeCombo = new JComboBox<>(searchOptions);
+        searchTypeCombo.setFont(REGULAR_FONT);
+        searchTypeCombo.setBackground(SURFACE_COLOR);
+        searchTypeCombo.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(218, 218, 218), 1),
+                BorderFactory.createEmptyBorder(0, 5, 0, 5)
+        ));
+        searchTypeCombo.setPreferredSize(new Dimension(120, 40));
 
-        // Status filter
-        JComboBox<String> statusFilter = new JComboBox<>(new String[]{"All Statuses",
-                "NEW", "IN_PROGRESS", "RESOLVED"});
-        statusFilter.setFont(SMALL_FONT);
+        // Search field with icon
+        JTextField searchField = createStyledTextField("Search tickets...", 20);
+        searchField.setPreferredSize(new Dimension(0, 40));
 
-        // Reset button
-        JButton resetButton = new JButton("Reset");
-        resetButton.setFont(SMALL_FONT);
-        resetButton.setBackground(Color.WHITE);
-        resetButton.setBorder(BorderFactory.createLineBorder(SECONDARY_COLOR));
-        resetButton.setForeground(SECONDARY_COLOR);
-        resetButton.setFocusPainted(false);
-        resetButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        JPanel searchFieldPanel = new JPanel(new BorderLayout());
+        searchFieldPanel.setBackground(SURFACE_COLOR);
 
-        // Add components to filter panel
-        filterPanel.add(new JLabel("Filters:"), "gapright 5");
-        filterPanel.add(categoryFilter, "growx");
-        filterPanel.add(new JLabel("Priority:"), "gapright 5");
-        filterPanel.add(priorityFilter, "growx");
-        filterPanel.add(new JLabel("Status:"), "gapright 5");
-        filterPanel.add(statusFilter, "growx");
-        filterPanel.add(resetButton, "gapleft 10");
+        JLabel searchIcon = new JLabel(createImageIcon("/icons/search.png", "Search"));
+        searchIcon.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 8));
+        searchFieldPanel.add(searchIcon, BorderLayout.WEST);
+        searchFieldPanel.add(searchField, BorderLayout.CENTER);
 
-        // Create filter listener
-        ActionListener filterListener = e -> {
-            String categoryStr = (String) categoryFilter.getSelectedItem();
-            String priorityStr = (String) priorityFilter.getSelectedItem();
-            String statusStr = (String) statusFilter.getSelectedItem();
+        // Search button
+        JButton searchButton = new JButton("Search");
+        searchButton.setFont(BUTTON_FONT);
+        searchButton.setBackground(PRIMARY_COLOR);
+        searchButton.setForeground(Color.WHITE);
+        searchButton.setBorderPainted(false);
+        searchButton.setFocusPainted(false);
+        searchButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        searchButton.setPreferredSize(new Dimension(100, 40));
 
-            Category category = categoryStr.equals("All Categories") ? null :
-                    Category.valueOf(categoryStr);
-            Priority priority = priorityStr.equals("All Priorities") ? null :
-                    Priority.valueOf(priorityStr);
-            Status status = statusStr.equals("All Statuses") ? null :
-                    Status.valueOf(statusStr);
+        // Add hover effect
+        searchButton.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                searchButton.setBackground(new Color(13, 71, 161)); // Darker blue
+            }
 
-            applyFilters(category, priority, status, null, null);
-        };
-
-        // Add listeners
-        categoryFilter.addActionListener(filterListener);
-        priorityFilter.addActionListener(filterListener);
-        statusFilter.addActionListener(filterListener);
-
-        // Reset button listener
-        resetButton.addActionListener(e -> {
-            categoryFilter.setSelectedIndex(0);
-            priorityFilter.setSelectedIndex(0);
-            statusFilter.setSelectedIndex(0);
-            ticketsTable.setRowSorter(null);
+            @Override
+            public void mouseExited(MouseEvent e) {
+                searchButton.setBackground(PRIMARY_COLOR);
+            }
         });
 
-        return filterPanel;
+        // Add search components to panel
+        searchBarPanel.add(searchTypeCombo, "cell 0 0");
+        searchBarPanel.add(searchFieldPanel, "cell 1 0, growx");
+        searchBarPanel.add(searchButton, "cell 2 0");
+
+        // Add filter toggles in a separate row
+        JPanel filterTogglePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        filterTogglePanel.setBackground(SURFACE_COLOR);
+
+        JLabel filterLabel = new JLabel("Quick Filters:");
+        filterLabel.setFont(REGULAR_FONT);
+        filterTogglePanel.add(filterLabel);
+
+        // Status filter pills
+        String[] statuses = {"NEW", "IN_PROGRESS", "RESOLVED"};
+        Color[] statusColors = {new Color(33, 150, 243), new Color(255, 152, 0), new Color(76, 175, 80)};
+
+        for (int i = 0; i < statuses.length; i++) {
+            JButton statusFilter = createFilterPill(statuses[i], statusColors[i]);
+            filterTogglePanel.add(statusFilter);
+        }
+
+        // Add separator
+        filterTogglePanel.add(new JSeparator(SwingConstants.VERTICAL));
+
+        // Priority filter pills
+        String[] priorities = {"HIGH", "MEDIUM", "LOW"};
+        Color[] priorityColors = {new Color(244, 67, 54), new Color(255, 152, 0), new Color(76, 175, 80)};
+
+        for (int i = 0; i < priorities.length; i++) {
+            JButton priorityFilter = createFilterPill(priorities[i], priorityColors[i]);
+            filterTogglePanel.add(priorityFilter);
+        }
+
+        // Create search action to be used by button and Enter key
+        ActionListener searchAction = e -> {
+            String searchText = searchField.getText().trim();
+            String searchType = (String) searchTypeCombo.getSelectedItem();
+
+            if (searchText.isEmpty()) {
+                ticketsTable.setRowSorter(null);
+                return;
+            }
+
+            TableRowSorter<TicketTableModel> sorter = new TableRowSorter<>(ticketTableModel);
+
+            switch (searchType) {
+                case "ID":
+                    try {
+                        Long id = Long.parseLong(searchText);
+                        sorter.setRowFilter(RowFilter.numberFilter(
+                                RowFilter.ComparisonType.EQUAL, id, 0));
+                    } catch (NumberFormatException ex) {
+                        JOptionPane.showMessageDialog(null,
+                                "Please enter a valid ID number",
+                                "Search Error",
+                                JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+                    break;
+                case "Title":
+                    sorter.setRowFilter(RowFilter.regexFilter("(?i)" + Pattern.quote(searchText), 1));
+                    break;
+                case "Status":
+                    sorter.setRowFilter(RowFilter.regexFilter("(?i)" + Pattern.quote(searchText), 4));
+                    break;
+                case "Priority":
+                    sorter.setRowFilter(RowFilter.regexFilter("(?i)" + Pattern.quote(searchText), 2));
+                    break;
+                case "Category":
+                    sorter.setRowFilter(RowFilter.regexFilter("(?i)" + Pattern.quote(searchText), 3));
+                    break;
+            }
+
+            ticketsTable.setRowSorter(sorter);
+
+            // Show search results count
+            int filteredRowCount = ticketsTable.getRowCount();
+            showNotification("Found " + filteredRowCount + " matching tickets", SECONDARY_COLOR);
+        };
+
+        // Add action listeners
+        searchButton.addActionListener(searchAction);
+        searchField.addActionListener(searchAction);
+
+        // Add components to main search panel
+        searchPanel.add(searchBarPanel, "cell 0 0, growx, span 2");
+        searchPanel.add(filterTogglePanel, "cell 0 1, growx, span 2");
+
+        return searchPanel;
+    }
+
+    private JButton createFilterPill(String text, Color color) {
+        JButton pill = new JButton(text);
+        pill.setFont(SMALL_FONT);
+        pill.setForeground(SURFACE_COLOR);
+        pill.setBackground(color);
+        pill.setBorderPainted(false);
+        pill.setFocusPainted(false);
+        pill.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        pill.setPreferredSize(new Dimension(90, 28));
+
+        // Add hover and click effects
+        pill.addMouseListener(new MouseAdapter() {
+            private boolean isActive = false;
+
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                if (!isActive) {
+                    pill.setBackground(new Color(
+                            Math.max(color.getRed() - 20, 0),
+                            Math.max(color.getGreen() - 20, 0),
+                            Math.max(color.getBlue() - 20, 0)
+                    ));
+                }
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                if (!isActive) {
+                    pill.setBackground(color);
+                }
+            }
+
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                isActive = !isActive;
+
+                if (isActive) {
+                    pill.setBorder(BorderFactory.createLineBorder(SURFACE_COLOR, 2));
+
+                    // Apply filter
+                    String filterText = pill.getText();
+                    TableRowSorter<TicketTableModel> sorter = new TableRowSorter<>(ticketTableModel);
+
+                    if (filterText.equals("HIGH") || filterText.equals("MEDIUM") || filterText.equals("LOW")) {
+                        sorter.setRowFilter(RowFilter.regexFilter("^" + filterText + "$", 2));
+                    } else {
+                        sorter.setRowFilter(RowFilter.regexFilter("^" + filterText + "$", 4));
+                    }
+
+                    ticketsTable.setRowSorter(sorter);
+                } else {
+                    pill.setBorder(BorderFactory.createEmptyBorder());
+                    ticketsTable.setRowSorter(null);
+                }
+            }
+        });
+
+        return pill;
     }
 
     private JPanel createTicketTablePanel() {
         JPanel tablePanel = new JPanel(new BorderLayout());
-        tablePanel.setBackground(Color.WHITE);
+        tablePanel.setBackground(SURFACE_COLOR);
         tablePanel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(218, 218, 218), 1),
                 BorderFactory.createEmptyBorder(0, 0, 0, 0)
@@ -765,16 +976,16 @@ public class TicketSystemClient extends JFrame {
         // Configure and create table
         configureTicketTable();
 
+        // Create a scrollable view for the table
         JScrollPane scrollPane = new JScrollPane(ticketsTable);
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
-        scrollPane.getViewport().setBackground(Color.WHITE);
-
+        scrollPane.getViewport().setBackground(SURFACE_COLOR);
         tablePanel.add(scrollPane, BorderLayout.CENTER);
 
         // Add action panel at the bottom if IT Support
         if (currentUser.isItSupport()) {
             JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
-            actionPanel.setBackground(Color.WHITE);
+            actionPanel.setBackground(SURFACE_COLOR);
             actionPanel.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(218, 218, 218)));
 
             changeStatusButton = new JButton("Change Status");
@@ -795,6 +1006,10 @@ public class TicketSystemClient extends JFrame {
             addCommentButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
             addCommentButton.setEnabled(false);
 
+            // Add hover effects
+            changeStatusButton.addMouseListener(new ButtonHoverAdapter(changeStatusButton, SECONDARY_COLOR));
+            addCommentButton.addMouseListener(new ButtonHoverAdapter(addCommentButton, ACCENT_COLOR));
+
             // Add action listeners
             changeStatusButton.addActionListener(e -> showChangeStatusDialog());
             addCommentButton.addActionListener(e -> showAddCommentDialog());
@@ -808,11 +1023,39 @@ public class TicketSystemClient extends JFrame {
 
             actionPanel.add(changeStatusButton);
             actionPanel.add(addCommentButton);
-
             tablePanel.add(actionPanel, BorderLayout.SOUTH);
         }
 
         return tablePanel;
+    }
+
+    // Helper class for button hover effects
+    private class ButtonHoverAdapter extends MouseAdapter {
+        private final JButton button;
+        private final Color originalColor;
+
+        public ButtonHoverAdapter(JButton button, Color originalColor) {
+            this.button = button;
+            this.originalColor = originalColor;
+        }
+
+        @Override
+        public void mouseEntered(MouseEvent e) {
+            if (button.isEnabled()) {
+                button.setBackground(new Color(
+                        Math.max(originalColor.getRed() - 20, 0),
+                        Math.max(originalColor.getGreen() - 20, 0),
+                        Math.max(originalColor.getBlue() - 20, 0)
+                ));
+            }
+        }
+
+        @Override
+        public void mouseExited(MouseEvent e) {
+            if (button.isEnabled()) {
+                button.setBackground(originalColor);
+            }
+        }
     }
 
     private void configureTicketTable() {
@@ -856,11 +1099,12 @@ public class TicketSystemClient extends JFrame {
         // Priority Column
         columnModel.getColumn(2).setCellRenderer(new DefaultTableCellRenderer() {
             @Override
-            public Component getTableCellRendererComponent(JTable table, Object value,
-                                                           boolean isSelected, boolean hasFocus, int row, int column) {
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
                 Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+
                 if (value instanceof Priority priority && !isSelected) {
                     setHorizontalAlignment(CENTER);
+
                     JPanel panel = new JPanel(new BorderLayout());
                     panel.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
 
@@ -871,7 +1115,7 @@ public class TicketSystemClient extends JFrame {
                     switch (priority) {
                         case HIGH -> {
                             panel.setBackground(new Color(255, 236, 236));
-                            label.setForeground(new Color(220, 53, 69));
+                            label.setForeground(new Color(211, 47, 47));
                         }
                         case MEDIUM -> {
                             panel.setBackground(new Color(255, 248, 230));
@@ -879,13 +1123,14 @@ public class TicketSystemClient extends JFrame {
                         }
                         case LOW -> {
                             panel.setBackground(new Color(232, 250, 240));
-                            label.setForeground(new Color(40, 167, 69));
+                            label.setForeground(new Color(46, 125, 50));
                         }
                     }
 
                     panel.add(label, BorderLayout.CENTER);
                     return panel;
                 }
+
                 return c;
             }
         });
@@ -893,11 +1138,12 @@ public class TicketSystemClient extends JFrame {
         // Status Column
         columnModel.getColumn(4).setCellRenderer(new DefaultTableCellRenderer() {
             @Override
-            public Component getTableCellRendererComponent(JTable table, Object value,
-                                                           boolean isSelected, boolean hasFocus, int row, int column) {
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
                 Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+
                 if (value instanceof Status status && !isSelected) {
                     setHorizontalAlignment(CENTER);
+
                     JPanel panel = new JPanel(new BorderLayout());
                     panel.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
 
@@ -908,21 +1154,22 @@ public class TicketSystemClient extends JFrame {
                     switch (status) {
                         case NEW -> {
                             panel.setBackground(new Color(232, 244, 253));
-                            label.setForeground(new Color(23, 162, 184));
+                            label.setForeground(new Color(21, 101, 192));
                         }
                         case IN_PROGRESS -> {
                             panel.setBackground(new Color(255, 243, 205));
-                            label.setForeground(new Color(255, 153, 0));
+                            label.setForeground(new Color(245, 124, 0));
                         }
                         case RESOLVED -> {
                             panel.setBackground(new Color(212, 237, 218));
-                            label.setForeground(new Color(40, 167, 69));
+                            label.setForeground(new Color(46, 125, 50));
                         }
                     }
 
                     panel.add(label, BorderLayout.CENTER);
                     return panel;
                 }
+
                 return c;
             }
         });
@@ -931,8 +1178,7 @@ public class TicketSystemClient extends JFrame {
         DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
         DefaultTableCellRenderer dateRenderer = new DefaultTableCellRenderer() {
             @Override
-            public Component getTableCellRendererComponent(JTable table, Object value,
-                                                           boolean isSelected, boolean hasFocus, int row, int column) {
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
                 if (value instanceof LocalDateTime date) {
                     value = date.format(dateFormatter);
                     setToolTipText(date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy HH:mm:ss")));
@@ -947,8 +1193,7 @@ public class TicketSystemClient extends JFrame {
         // Title Column (with tooltip)
         columnModel.getColumn(1).setCellRenderer(new DefaultTableCellRenderer() {
             @Override
-            public Component getTableCellRendererComponent(JTable table, Object value,
-                                                           boolean isSelected, boolean hasFocus, int row, int column) {
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
                 Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
                 if (value != null) {
                     setToolTipText(value.toString());
@@ -957,7 +1202,7 @@ public class TicketSystemClient extends JFrame {
             }
         });
 
-        // Add double-click listener
+        // Add double-click listener for ticket details
         ticketsTable.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -990,16 +1235,18 @@ public class TicketSystemClient extends JFrame {
         // Add alternating row colors
         ticketsTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
-            public Component getTableCellRendererComponent(JTable table, Object value,
-                                                           boolean isSelected, boolean hasFocus, int row, int column) {
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
                 Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+
                 if (!isSelected) {
-                    c.setBackground(row % 2 == 0 ? Color.WHITE : new Color(249, 249, 249));
+                    c.setBackground(row % 2 == 0 ? SURFACE_COLOR : new Color(249, 249, 249));
                 }
+
                 setBorder(BorderFactory.createCompoundBorder(
                         BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(240, 240, 240)),
                         BorderFactory.createEmptyBorder(0, 10, 0, 10)
                 ));
+
                 return c;
             }
         });
@@ -1008,7 +1255,7 @@ public class TicketSystemClient extends JFrame {
     private void showTicketDetailsDialog(TicketDTO ticket) {
         JDialog dialog = new JDialog(this, "Ticket Details", true);
         dialog.setLayout(new BorderLayout());
-        dialog.getContentPane().setBackground(Color.WHITE);
+        dialog.getContentPane().setBackground(SURFACE_COLOR);
 
         // Create header panel with ticket ID and title
         JPanel headerPanel = new JPanel(new BorderLayout());
@@ -1028,7 +1275,7 @@ public class TicketSystemClient extends JFrame {
 
         // Create content panel
         JPanel contentPanel = new JPanel(new MigLayout("fillx, insets 25", "[120, right][grow]", "[][][][][][]"));
-        contentPanel.setBackground(Color.WHITE);
+        contentPanel.setBackground(SURFACE_COLOR);
 
         // Description
         contentPanel.add(createBoldLabel("Description:"), "cell 0 0, alignx right, aligny top");
@@ -1047,7 +1294,6 @@ public class TicketSystemClient extends JFrame {
         JScrollPane descScroll = new JScrollPane(descArea);
         descScroll.setPreferredSize(new Dimension(300, 100));
         descScroll.setBorder(BorderFactory.createEmptyBorder());
-
         contentPanel.add(descScroll, "cell 1 0, growx, wrap");
 
         // Priority with styled label
@@ -1066,7 +1312,6 @@ public class TicketSystemClient extends JFrame {
 
         // Created date and by
         contentPanel.add(createBoldLabel("Created:"), "cell 0 4");
-
         String createdDateStr = ticket.getCreatedDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
 
         // Get creator username
@@ -1091,7 +1336,7 @@ public class TicketSystemClient extends JFrame {
 
         // Comments section
         JPanel commentsPanel = new JPanel(new BorderLayout());
-        commentsPanel.setBackground(Color.WHITE);
+        commentsPanel.setBackground(SURFACE_COLOR);
         commentsPanel.setBorder(BorderFactory.createTitledBorder(
                 BorderFactory.createLineBorder(new Color(222, 226, 230)),
                 "Comments",
@@ -1103,10 +1348,10 @@ public class TicketSystemClient extends JFrame {
 
         JPanel commentsContentPanel = new JPanel();
         commentsContentPanel.setLayout(new BoxLayout(commentsContentPanel, BoxLayout.Y_AXIS));
-        commentsContentPanel.setBackground(Color.WHITE);
+        commentsContentPanel.setBackground(SURFACE_COLOR);
 
-        if (ticket.getComments() != null && !ticket.getComments().isEmpty()) {
-            for (CommentDTO comment : ticket.getComments()) {
+        if (ticket.getTicketComments() != null && !ticket.getTicketComments().isEmpty()) {
+            for (CommentDTO comment : ticket.getTicketComments()) {
                 // Create comment panel
                 JPanel commentPanel = createCommentPanel(comment);
                 commentsContentPanel.add(commentPanel);
@@ -1118,7 +1363,6 @@ public class TicketSystemClient extends JFrame {
             noCommentsLabel.setForeground(new Color(108, 117, 125));
             noCommentsLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
             noCommentsLabel.setBorder(BorderFactory.createEmptyBorder(20, 0, 20, 0));
-
             commentsContentPanel.add(Box.createVerticalGlue());
             commentsContentPanel.add(noCommentsLabel);
             commentsContentPanel.add(Box.createVerticalGlue());
@@ -1127,10 +1371,8 @@ public class TicketSystemClient extends JFrame {
         JScrollPane commentsScroll = new JScrollPane(commentsContentPanel);
         commentsScroll.setBorder(BorderFactory.createEmptyBorder());
         commentsScroll.setPreferredSize(new Dimension(400, 150));
-
         commentsPanel.add(commentsScroll, BorderLayout.CENTER);
 
-        // Create buttons panel
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 15));
         buttonPanel.setBackground(new Color(248, 249, 250));
         buttonPanel.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(222, 226, 230)));
@@ -1139,7 +1381,6 @@ public class TicketSystemClient extends JFrame {
         if (currentUser.isItSupport()) {
             JButton addCommentBtn = createPrimaryButton("Add Comment");
             JButton changeStatusBtn = createSecondaryButton("Change Status");
-
             addCommentBtn.setPreferredSize(new Dimension(150, 40));
             changeStatusBtn.setPreferredSize(new Dimension(150, 40));
 
@@ -1258,7 +1499,7 @@ public class TicketSystemClient extends JFrame {
 
         JDialog dialog = new JDialog(this, "Change Ticket Status", true);
         dialog.setLayout(new BorderLayout());
-        dialog.getContentPane().setBackground(Color.WHITE);
+        dialog.getContentPane().setBackground(SURFACE_COLOR);
 
         // Header panel
         JPanel headerPanel = new JPanel(new BorderLayout());
@@ -1272,7 +1513,7 @@ public class TicketSystemClient extends JFrame {
 
         // Content panel
         JPanel contentPanel = new JPanel(new MigLayout("fillx, insets 25", "[right][grow]", "[][]"));
-        contentPanel.setBackground(Color.WHITE);
+        contentPanel.setBackground(SURFACE_COLOR);
 
         JLabel currentStatusLabel = new JLabel("Current Status:");
         currentStatusLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
@@ -1304,7 +1545,6 @@ public class TicketSystemClient extends JFrame {
 
         JButton updateButton = createPrimaryButton("Update");
         updateButton.setPreferredSize(new Dimension(100, 40));
-
         updateButton.addActionListener(e -> {
             try {
                 Status newStatus = (Status) statusCombo.getSelectedItem();
@@ -1347,7 +1587,7 @@ public class TicketSystemClient extends JFrame {
 
         JDialog dialog = new JDialog(this, "Add Comment", true);
         dialog.setLayout(new BorderLayout());
-        dialog.getContentPane().setBackground(Color.WHITE);
+        dialog.getContentPane().setBackground(SURFACE_COLOR);
 
         // Header panel
         JPanel headerPanel = new JPanel(new BorderLayout());
@@ -1361,7 +1601,7 @@ public class TicketSystemClient extends JFrame {
 
         // Content panel
         JPanel contentPanel = new JPanel(new MigLayout("fillx, insets 25", "[grow]", "[][]"));
-        contentPanel.setBackground(Color.WHITE);
+        contentPanel.setBackground(SURFACE_COLOR);
 
         JLabel commentLabel = new JLabel("Your Comment:");
         commentLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
@@ -1393,7 +1633,6 @@ public class TicketSystemClient extends JFrame {
 
         JButton submitButton = createPrimaryButton("Submit");
         submitButton.setPreferredSize(new Dimension(100, 40));
-
         submitButton.addActionListener(e -> {
             try {
                 String comment = commentArea.getText().trim();
@@ -1405,7 +1644,6 @@ public class TicketSystemClient extends JFrame {
                 apiClient.addComment(ticket.getId(), comment, currentUser.getId());
                 showNotification("Comment added successfully", ACCENT_COLOR);
                 dialog.dispose();
-                refreshTickets();
             } catch (Exception ex) {
                 showErrorDialog(dialog, "Error", "Failed to add comment: " + ex.getMessage());
             }
@@ -1427,7 +1665,7 @@ public class TicketSystemClient extends JFrame {
     private void showAuditLogDialog() {
         JDialog dialog = new JDialog(this, "Audit Log", true);
         dialog.setLayout(new BorderLayout());
-        dialog.getContentPane().setBackground(Color.WHITE);
+        dialog.getContentPane().setBackground(SURFACE_COLOR);
 
         // Header panel
         JPanel headerPanel = new JPanel(new BorderLayout());
@@ -1441,7 +1679,7 @@ public class TicketSystemClient extends JFrame {
 
         // Filter panel
         JPanel filterPanel = new JPanel(new MigLayout("", "[][]", "[]"));
-        filterPanel.setBackground(Color.WHITE);
+        filterPanel.setBackground(SURFACE_COLOR);
         filterPanel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(222, 226, 230)),
                 BorderFactory.createEmptyBorder(15, 20, 15, 20)
@@ -1476,16 +1714,16 @@ public class TicketSystemClient extends JFrame {
 
         // Configure column widths
         TableColumnModel columnModel = auditTable.getColumnModel();
-        columnModel.getColumn(0).setPreferredWidth(70);  // Ticket ID
-        columnModel.getColumn(1).setPreferredWidth(120); // Action
-        columnModel.getColumn(2).setPreferredWidth(100); // Old Value
-        columnModel.getColumn(3).setPreferredWidth(100); // New Value
-        columnModel.getColumn(4).setPreferredWidth(100); // Performed By
-        columnModel.getColumn(5).setPreferredWidth(150); // Date
+        columnModel.getColumn(0).setPreferredWidth(70);   // Ticket ID
+        columnModel.getColumn(1).setPreferredWidth(120);  // Action
+        columnModel.getColumn(2).setPreferredWidth(100);  // Old Value
+        columnModel.getColumn(3).setPreferredWidth(100);  // New Value
+        columnModel.getColumn(4).setPreferredWidth(100);  // Performed By
+        columnModel.getColumn(5).setPreferredWidth(150);  // Date
 
         JScrollPane tableScroll = new JScrollPane(auditTable);
         tableScroll.setBorder(BorderFactory.createEmptyBorder());
-        tableScroll.getViewport().setBackground(Color.WHITE);
+        tableScroll.getViewport().setBackground(SURFACE_COLOR);
 
         try {
             List<AuditLogDTO> auditLogs = apiClient.getAuditLogs(currentUser.getId());
@@ -1512,11 +1750,13 @@ public class TicketSystemClient extends JFrame {
         searchButton.addActionListener(e -> {
             String searchText = searchField.getText().toLowerCase();
             TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(model);
+
             if (!searchText.trim().isEmpty()) {
                 sorter.setRowFilter(RowFilter.regexFilter("(?i)" + searchText));
             } else {
                 sorter.setRowFilter(null);
             }
+
             auditTable.setRowSorter(sorter);
         });
 
@@ -1532,12 +1772,11 @@ public class TicketSystemClient extends JFrame {
         closeButton.setFont(BUTTON_FONT);
         closeButton.setPreferredSize(new Dimension(100, 40));
         closeButton.addActionListener(e -> dialog.dispose());
-
         buttonPanel.add(closeButton);
 
         // Add components to dialog
         dialog.add(headerPanel, BorderLayout.NORTH);
-        dialog.add(filterPanel, BorderLayout.CENTER);
+        dialog.add(filterPanel, BorderLayout.PAGE_START);
         dialog.add(tableScroll, BorderLayout.CENTER);
         dialog.add(buttonPanel, BorderLayout.SOUTH);
 
@@ -1567,31 +1806,132 @@ public class TicketSystemClient extends JFrame {
         // Add alternating row colors
         table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
-            public Component getTableCellRendererComponent(JTable table, Object value,
-                                                           boolean isSelected, boolean hasFocus, int row, int column) {
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
                 Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+
                 if (!isSelected) {
-                    c.setBackground(row % 2 == 0 ? Color.WHITE : new Color(249, 249, 249));
+                    c.setBackground(row % 2 == 0 ? SURFACE_COLOR : new Color(249, 249, 249));
                 }
+
                 setBorder(BorderFactory.createCompoundBorder(
                         BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(240, 240, 240)),
                         BorderFactory.createEmptyBorder(0, 10, 0, 10)
                 ));
+
                 return c;
             }
         });
     }
 
+    private void showCreateTicketDialog() {
+        JDialog dialog = new JDialog(this, "Create New Ticket", true);
+        dialog.setLayout(new BorderLayout());
+        dialog.getContentPane().setBackground(SURFACE_COLOR);
+
+        // Header panel
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(PRIMARY_COLOR);
+        headerPanel.setBorder(BorderFactory.createEmptyBorder(20, 25, 20, 25));
+
+        JLabel titleLabel = new JLabel("Create New Ticket");
+        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        titleLabel.setForeground(Color.WHITE);
+        headerPanel.add(titleLabel, BorderLayout.CENTER);
+
+        // Form panel
+        JPanel formPanel = new JPanel(new MigLayout("fillx, insets 20", "[100, right][grow]", "[][][][]"));
+        formPanel.setBackground(SURFACE_COLOR);
+
+        JTextField titleField = createStyledTextField("Enter ticket title", 30);
+
+        JTextArea descriptionArea = new JTextArea(5, 30);
+        descriptionArea.setFont(REGULAR_FONT);
+        descriptionArea.setLineWrap(true);
+        descriptionArea.setWrapStyleWord(true);
+        descriptionArea.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(222, 226, 230)),
+                BorderFactory.createEmptyBorder(8, 8, 8, 8)
+        ));
+
+        JScrollPane descScroll = new JScrollPane(descriptionArea);
+        descScroll.setBorder(BorderFactory.createEmptyBorder());
+
+        JComboBox<Priority> priorityCombo = new JComboBox<>(Priority.values());
+        priorityCombo.setFont(REGULAR_FONT);
+        priorityCombo.setPreferredSize(new Dimension(200, 35));
+
+        JComboBox<Category> categoryCombo = new JComboBox<>(Category.values());
+        categoryCombo.setFont(REGULAR_FONT);
+        categoryCombo.setPreferredSize(new Dimension(200, 35));
+
+        // Add form elements
+        formPanel.add(createBoldLabel("Title:"), "cell 0 0, alignx right");
+        formPanel.add(titleField, "cell 1 0, growx, wrap");
+        formPanel.add(createBoldLabel("Description:"), "cell 0 1, alignx right, aligny top");
+        formPanel.add(descScroll, "cell 1 1, growx, wrap");
+        formPanel.add(createBoldLabel("Priority:"), "cell 0 2, alignx right");
+        formPanel.add(priorityCombo, "cell 1 2, wrap");
+        formPanel.add(createBoldLabel("Category:"), "cell 0 3, alignx right");
+        formPanel.add(categoryCombo, "cell 1 3, wrap");
+
+        // Button panel
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 15));
+        buttonPanel.setBackground(new Color(248, 249, 250));
+        buttonPanel.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(222, 226, 230)));
+
+        JButton cancelButton = new JButton("Cancel");
+        cancelButton.setFont(BUTTON_FONT);
+        cancelButton.setPreferredSize(new Dimension(100, 40));
+        cancelButton.addActionListener(e -> dialog.dispose());
+
+        JButton submitButton = createPrimaryButton("Submit");
+        submitButton.setPreferredSize(new Dimension(100, 40));
+        submitButton.addActionListener(e -> {
+            try {
+                if (titleField.getText().trim().isEmpty()) {
+                    showErrorDialog(dialog, "Validation Error", "Please enter a title for the ticket");
+                    return;
+                }
+
+                TicketDTO ticket = new TicketDTO();
+                ticket.setTitle(titleField.getText().trim());
+                ticket.setDescription(descriptionArea.getText().trim());
+                ticket.setPriority((Priority) priorityCombo.getSelectedItem());
+                ticket.setCategory((Category) categoryCombo.getSelectedItem());
+
+                apiClient.createTicket(ticket, currentUser.getId());
+                showNotification("Ticket created successfully", ACCENT_COLOR);
+                dialog.dispose();
+                refreshTickets();
+            } catch (Exception ex) {
+                showErrorDialog(dialog, "Error", "Failed to create ticket: " + ex.getMessage());
+            }
+        });
+
+        buttonPanel.add(cancelButton);
+        buttonPanel.add(submitButton);
+
+        // Add all panels to dialog
+        dialog.add(headerPanel, BorderLayout.NORTH);
+        dialog.add(formPanel, BorderLayout.CENTER);
+        dialog.add(buttonPanel, BorderLayout.SOUTH);
+
+        dialog.setSize(600, 500);
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
     private void refreshTickets() {
         try {
             setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
-
             List<TicketDTO> tickets;
+
             if (currentUser.isItSupport()) {
                 tickets = apiClient.getAllTickets(currentUser.getId());
             } else {
                 tickets = apiClient.getUserTickets(currentUser.getId());
             }
+
             ticketTableModel.setTickets(tickets);
 
             // Show success notification
@@ -1605,10 +1945,8 @@ public class TicketSystemClient extends JFrame {
         }
     }
 
-    private void applyFilters(Category category, Priority priority, Status status,
-                              Date fromDate, Date toDate) {
+    private void applyFilters(Category category, Priority priority, Status status, Date fromDate, Date toDate) {
         TableRowSorter<TicketTableModel> sorter = new TableRowSorter<>(ticketTableModel);
-
         List<RowFilter<TicketTableModel, Integer>> filters = new ArrayList<>();
 
         // Category filter
@@ -1666,232 +2004,73 @@ public class TicketSystemClient extends JFrame {
     // Helper methods for colors
     private Color getPriorityColor(Priority priority) {
         return switch (priority) {
-            case HIGH -> new Color(220, 53, 69);
-            case MEDIUM -> new Color(255, 153, 0);
-            case LOW -> new Color(40, 167, 69);
+            case HIGH -> new Color(211, 47, 47);     // Material Red
+            case MEDIUM -> new Color(255, 152, 0);   // Material Orange
+            case LOW -> new Color(46, 125, 50);      // Material Green
         };
     }
 
     private Color getStatusColor(Status status) {
         return switch (status) {
-            case NEW -> new Color(23, 162, 184);
-            case IN_PROGRESS -> new Color(255, 153, 0);
-            case RESOLVED -> new Color(40, 167, 69);
+            case NEW -> new Color(21, 101, 192);     // Material Blue
+            case IN_PROGRESS -> new Color(255, 152, 0); // Material Orange
+            case RESOLVED -> new Color(46, 125, 50); // Material Green
         };
     }
-    private void showCreateTicketDialog() {
-        JDialog dialog = new JDialog(this, "Create New Ticket", true);
-        dialog.setLayout(new BorderLayout());
-        dialog.getContentPane().setBackground(Color.WHITE);
 
-        // Header panel
-        JPanel headerPanel = new JPanel(new BorderLayout());
-        headerPanel.setBackground(PRIMARY_COLOR);
-        headerPanel.setBorder(BorderFactory.createEmptyBorder(20, 25, 20, 25));
+    private ImageIcon createImageIcon(String path, String description) {
+        java.net.URL imgURL = getClass().getResource(path);
+        if (imgURL != null) {
+            ImageIcon icon = new ImageIcon(imgURL, description);
+            // Resize the icon to appropriate dimensions
+            Image img = icon.getImage();
+            // Determine appropriate size based on icon type
+            int width = 24;
+            int height = 24;
 
-        JLabel titleLabel = new JLabel("Create New Ticket");
-        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
-        titleLabel.setForeground(Color.WHITE);
-        headerPanel.add(titleLabel, BorderLayout.CENTER);
-
-        // Form panel
-        JPanel formPanel = new JPanel(new MigLayout("fillx, insets 20", "[100, right][grow]", "[][][][]"));
-        formPanel.setBackground(Color.WHITE);
-
-        JTextField titleField = createStyledTextField("Enter ticket title", 30);
-
-        JTextArea descriptionArea = new JTextArea(5, 30);
-        descriptionArea.setFont(REGULAR_FONT);
-        descriptionArea.setLineWrap(true);
-        descriptionArea.setWrapStyleWord(true);
-        descriptionArea.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(222, 226, 230)),
-                BorderFactory.createEmptyBorder(8, 8, 8, 8)
-        ));
-        JScrollPane descScroll = new JScrollPane(descriptionArea);
-        descScroll.setBorder(BorderFactory.createEmptyBorder());
-
-        JComboBox<Priority> priorityCombo = new JComboBox<>(Priority.values());
-        priorityCombo.setFont(REGULAR_FONT);
-        priorityCombo.setPreferredSize(new Dimension(200, 35));
-
-        JComboBox<Category> categoryCombo = new JComboBox<>(Category.values());
-        categoryCombo.setFont(REGULAR_FONT);
-        categoryCombo.setPreferredSize(new Dimension(200, 35));
-
-        // Add form elements
-        formPanel.add(createBoldLabel("Title:"), "cell 0 0, alignx right");
-        formPanel.add(titleField, "cell 1 0, growx, wrap");
-
-        formPanel.add(createBoldLabel("Description:"), "cell 0 1, alignx right, aligny top");
-        formPanel.add(descScroll, "cell 1 1, growx, wrap");
-
-        formPanel.add(createBoldLabel("Priority:"), "cell 0 2, alignx right");
-        formPanel.add(priorityCombo, "cell 1 2, wrap");
-
-        formPanel.add(createBoldLabel("Category:"), "cell 0 3, alignx right");
-        formPanel.add(categoryCombo, "cell 1 3, wrap");
-
-        // Button panel
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 15));
-        buttonPanel.setBackground(new Color(248, 249, 250));
-        buttonPanel.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(222, 226, 230)));
-
-        JButton cancelButton = new JButton("Cancel");
-        cancelButton.setFont(BUTTON_FONT);
-        cancelButton.setPreferredSize(new Dimension(100, 40));
-        cancelButton.addActionListener(e -> dialog.dispose());
-
-        JButton submitButton = createPrimaryButton("Submit");
-        submitButton.setPreferredSize(new Dimension(100, 40));
-
-        submitButton.addActionListener(e -> {
-            try {
-                if (titleField.getText().trim().isEmpty()) {
-                    showErrorDialog(dialog, "Validation Error", "Please enter a title for the ticket");
-                    return;
-                }
-
-                TicketDTO ticket = new TicketDTO();
-                ticket.setTitle(titleField.getText().trim());
-                ticket.setDescription(descriptionArea.getText().trim());
-                ticket.setPriority((Priority) priorityCombo.getSelectedItem());
-                ticket.setCategory((Category) categoryCombo.getSelectedItem());
-
-                apiClient.createTicket(ticket, currentUser.getId());
-                showNotification("Ticket created successfully", ACCENT_COLOR);
-                dialog.dispose();
-                refreshTickets();
-            } catch (Exception ex) {
-                showErrorDialog(dialog, "Error", "Failed to create ticket: " + ex.getMessage());
-            }
-        });
-
-        buttonPanel.add(cancelButton);
-        buttonPanel.add(submitButton);
-
-        // Add all panels to dialog
-        dialog.add(headerPanel, BorderLayout.NORTH);
-        dialog.add(formPanel, BorderLayout.CENTER);
-        dialog.add(buttonPanel, BorderLayout.SOUTH);
-
-        dialog.setSize(600, 500);
-        dialog.setLocationRelativeTo(this);
-        dialog.setVisible(true);
-    }
-
-    private JPanel createEnhancedSearchPanel() {
-        // Use only standard MigLayout constraints - no 'auto'
-        JPanel searchPanel = new JPanel(new MigLayout("fillx, insets 0", "[grow][]", "[]"));
-        searchPanel.setBackground(Color.WHITE);
-        searchPanel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(218, 218, 218), 1),
-                BorderFactory.createEmptyBorder(15, 20, 15, 20)
-        ));
-
-        // Create combo box for search type
-        String[] searchOptions = {"ID", "Title", "Status", "Priority", "Category"};
-        JComboBox<String> searchTypeCombo = new JComboBox<>(searchOptions);
-        searchTypeCombo.setFont(REGULAR_FONT);
-        searchTypeCombo.setPreferredSize(new Dimension(120, 40));
-
-        // Simple search field
-        JTextField searchField = createStyledTextField("Search tickets...", 20);
-        searchField.setPreferredSize(new Dimension(0, 40));
-
-        // Search button
-        JButton searchButton = new JButton("Search");
-        searchButton.setFont(BUTTON_FONT);
-        searchButton.setBackground(PRIMARY_COLOR);
-        searchButton.setForeground(Color.WHITE);
-        searchButton.setBorderPainted(false);
-        searchButton.setFocusPainted(false);
-        searchButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        searchButton.setPreferredSize(new Dimension(100, 40));
-
-        // Create search action
-        ActionListener searchAction = e -> {
-            String searchText = searchField.getText().trim();
-            String searchType = (String) searchTypeCombo.getSelectedItem();
-
-            if (searchText.isEmpty()) {
-                ticketsTable.setRowSorter(null);
-                return;
+            if (path.contains("user") || path.contains("lock")) {
+                width = height = 16;
+            } else if (path.contains("support_logo")) {
+                width = height = 64; // Larger for the main logo
             }
 
-            TableRowSorter<TicketTableModel> sorter = new TableRowSorter<>(ticketTableModel);
-
-            switch (searchType) {
-                case "ID":
-                    try {
-                        Long id = Long.parseLong(searchText);
-                        sorter.setRowFilter(RowFilter.numberFilter(
-                                RowFilter.ComparisonType.EQUAL, id, 0));
-                    } catch (NumberFormatException ex) {
-                        JOptionPane.showMessageDialog(null,
-                                "Please enter a valid ID number",
-                                "Search Error",
-                                JOptionPane.ERROR_MESSAGE);
-                        return;
-                    }
-                    break;
-                case "Title":
-                    sorter.setRowFilter(RowFilter.regexFilter("(?i)" + Pattern.quote(searchText), 1));
-                    break;
-                case "Status":
-                    sorter.setRowFilter(RowFilter.regexFilter("(?i)" + Pattern.quote(searchText), 4));
-                    break;
-                case "Priority":
-                    sorter.setRowFilter(RowFilter.regexFilter("(?i)" + Pattern.quote(searchText), 2));
-                    break;
-                case "Category":
-                    sorter.setRowFilter(RowFilter.regexFilter("(?i)" + Pattern.quote(searchText), 3));
-                    break;
-            }
-
-            ticketsTable.setRowSorter(sorter);
-
-            // Show search results count
-            int filteredRowCount = ticketsTable.getRowCount();
-            showNotification("Found " + filteredRowCount + " matching tickets", SECONDARY_COLOR);
-        };
-
-        // Add action listeners
-        searchButton.addActionListener(searchAction);
-        searchField.addActionListener(searchAction); // Trigger search on Enter key
-
-        // Add elements to search panel with simple layout
-        JPanel searchFieldPanel = new JPanel(new BorderLayout());
-        searchFieldPanel.setBackground(Color.WHITE);
-        searchFieldPanel.add(searchField, BorderLayout.CENTER);
-
-        JPanel topRow = new JPanel(new MigLayout("insets 0", "[][grow][]", "[]"));
-        topRow.setBackground(Color.WHITE);
-        topRow.add(searchTypeCombo, "cell 0 0");
-        topRow.add(searchFieldPanel, "cell 1 0, growx");
-        topRow.add(searchButton, "cell 2 0");
-
-        searchPanel.add(topRow, "cell 0 0, growx, span 2");
-
-        return searchPanel;
-    }
-    private void setupFrame() {
-        setTitle("IT Support Ticket System");
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1024, 768);
-        setLocationRelativeTo(null);
-
-        // Try to set icon if available, otherwise use default
-        try {
-            setIconImage(createImageIcon("/icons/ticket_icon.png", "App Icon").getImage());
-        } catch (Exception e) {
-            // Use a default icon if the image can't be loaded
-            BufferedImage defaultIcon = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
-            Graphics2D g = defaultIcon.createGraphics();
-            g.setColor(PRIMARY_COLOR);
-            g.fillRect(0, 0, 16, 16);
-            g.dispose();
-            setIconImage(defaultIcon);
+            Image resizedImg = img.getScaledInstance(width, height, Image.SCALE_SMOOTH);
+            return new ImageIcon(resizedImg, description);
+        } else {
+            System.err.println("Warning: Could not find image: " + path);
+            return createFallbackIcon(path, description);
         }
+    }
+
+    private ImageIcon createFallbackIcon(String path, String description) {
+        // Create a simple colored square as fallback
+        int size = 16;
+        Color iconColor = PRIMARY_COLOR;
+
+        // Use different colors based on icon type
+        if (path.contains("user")) {
+            iconColor = new Color(66, 165, 245);  // Light blue
+            size = 20;
+        } else if (path.contains("lock")) {
+            iconColor = new Color(211, 47, 47);   // Red
+            size = 20;
+        } else if (path.contains("search")) {
+            iconColor = new Color(149, 165, 166); // Gray
+        } else if (path.contains("clear")) {
+            iconColor = new Color(189, 195, 199); // Light gray
+        } else if (path.contains("add")) {
+            iconColor = ACCENT_COLOR;
+        }
+
+        return new ImageIcon(createDefaultIcon(size, size, iconColor), description);
+    }
+
+    private Image createDefaultIcon(int width, int height, Color color) {
+        BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2d = img.createGraphics();
+        g2d.setColor(color);
+        g2d.fillRect(0, 0, width, height);
+        g2d.dispose();
+        return img;
     }
 }

@@ -19,6 +19,6 @@ public class TicketDTO {
     private LocalDateTime createdDate;
     private LocalDateTime lastUpdated;
     private Long createdById;
-    private List<CommentDTO> comments = new ArrayList<>();
+    private List<CommentDTO> ticketComments = new ArrayList<>();
 }
 

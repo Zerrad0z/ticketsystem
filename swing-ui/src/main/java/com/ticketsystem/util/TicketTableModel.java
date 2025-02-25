@@ -1,16 +1,31 @@
-package com.ticketsystem.model;
+package com.ticketsystem.util;
+
+import com.ticketsystem.model.*;
 
 import javax.swing.table.AbstractTableModel;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+// Inner class for ticket table model
 public class TicketTableModel extends AbstractTableModel {
-    private final String[] columnNames = {"ID", "Title", "Priority", "Category", "Status", "Created Date", "Last Updated"};
-    private final Class<?>[] columnTypes = {Long.class, String.class, Priority.class, Category.class, Status.class, LocalDateTime.class, LocalDateTime.class};    private List<TicketDTO> tickets = new ArrayList<>();
+    private final String[] columnNames = {
+            "ID", "Title", "Priority", "Category", "Status", "Created Date", "Last Updated"
+    };
+
+    private List<TicketDTO> tickets;
+
+    public TicketTableModel() {
+        this.tickets = new ArrayList<>();
+    }
+
     public void setTickets(List<TicketDTO> tickets) {
-        this.tickets = tickets != null ? tickets : new ArrayList<>();
+        this.tickets = tickets == null ? new ArrayList<>() : tickets;
         fireTableDataChanged();
+    }
+
+    public TicketDTO getTicketAt(int row) {
+        return tickets.get(row);
     }
 
     @Override
@@ -30,16 +45,24 @@ public class TicketTableModel extends AbstractTableModel {
 
     @Override
     public Class<?> getColumnClass(int columnIndex) {
-        return columnTypes[columnIndex];
+        if (columnIndex == 0) {
+            return Long.class;
+        } else if (columnIndex == 2) {
+            return Priority.class;
+        } else if (columnIndex == 3) {
+            return Category.class;
+        } else if (columnIndex == 4) {
+            return Status.class;
+        } else if (columnIndex == 5 || columnIndex == 6) {
+            return LocalDateTime.class;
+        }
+        return String.class;
     }
 
     @Override
     public Object getValueAt(int rowIndex, int columnIndex) {
-        if (rowIndex >= tickets.size()) {
-            return null;
-        }
-
         TicketDTO ticket = tickets.get(rowIndex);
+
         return switch (columnIndex) {
             case 0 -> ticket.getId();
             case 1 -> ticket.getTitle();
@@ -52,10 +75,8 @@ public class TicketTableModel extends AbstractTableModel {
         };
     }
 
-    public TicketDTO getTicketAt(int rowIndex) {
-        if (rowIndex >= 0 && rowIndex < tickets.size()) {
-            return tickets.get(rowIndex);
-        }
-        return null;
+    @Override
+    public boolean isCellEditable(int rowIndex, int columnIndex) {
+        return false;
     }
 }
