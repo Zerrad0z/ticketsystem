@@ -55,6 +55,16 @@ public class APIClient {
                 return currentUser;
             }
             throw new RuntimeException("Login failed: Unexpected response");
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            System.out.println("Login error: " + e.getMessage());
+            // Handle specific HTTP status codes
+            if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
+                throw new RuntimeException("Incorrect username or password");
+            } else if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
+                throw new RuntimeException("User not found");
+            } else {
+                throw new RuntimeException("Login failed: " + e.getMessage());
+            }
         } catch (Exception e) {
             System.out.println("Login error: " + e.getMessage());
             e.printStackTrace();

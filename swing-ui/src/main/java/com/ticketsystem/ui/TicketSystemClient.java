@@ -419,9 +419,13 @@ public class TicketSystemClient extends JFrame {
             } else {
                 showErrorDialog(this, "Login Error", "Invalid credentials");
             }
+        } catch (RuntimeException ex) {
+            ex.printStackTrace();
+            // Display the specific error message from the APIClient
+            showErrorDialog(this, "Login Error", ex.getMessage());
         } catch (Exception ex) {
             ex.printStackTrace();
-            showErrorDialog(this, "Login Error", ex.getMessage());
+            showErrorDialog(this, "Login Error", "An unexpected error occurred. Please try again.");
         } finally {
             setCursor(Cursor.getDefaultCursor());
         }
@@ -1553,7 +1557,6 @@ public class TicketSystemClient extends JFrame {
                 apiClient.updateTicketStatus(ticket.getId(), newStatus, currentUser.getId());
                 showNotification("Status updated successfully", ACCENT_COLOR);
                 dialog.dispose();
-                refreshTickets();
             } catch (Exception ex) {
                 showErrorDialog(dialog, "Error", "Failed to update status: " + ex.getMessage());
             }
@@ -1899,7 +1902,7 @@ public class TicketSystemClient extends JFrame {
                 apiClient.createTicket(ticket, currentUser.getId());
                 showNotification("Ticket created successfully", ACCENT_COLOR);
                 dialog.dispose();
-                refreshTickets();
+             //   refreshTickets();
             } catch (Exception ex) {
                 showErrorDialog(dialog, "Error", "Failed to create ticket: " + ex.getMessage());
             }
